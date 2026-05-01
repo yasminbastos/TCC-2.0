@@ -1,152 +1,70 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, Platform } from 'react-native';
-import { Accelerometer } from 'expo-sensors';
-import { Colors, Fonts } from '../../constants/theme';
+import React, { useState, useCallback } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Linking } from 'react-native';
+import { useFocusEffect } from 'expo-router';
+import * as SQLite from 'expo-sqlite';
+import { Colors } from '../../constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 
-const EmergencyScreen = () => {
-  const [data, setData] = useState({ x: 0, y: 0, z: 0 });
-  const [subscription, setSubscription] = useState<any>(null);
+const HistoryScreen = () => {
+  const [logs, setLogs] = useState<any[]>([]);
 
-  // Função central de Alerta [cite: 10, 14]
-  const triggerSOS = () => {
-    Alert.alert(
-      "🚨 SOS ATIVADO",
-      "Sua localização e pedido de ajuda foram enviados aos seus contatos cadastrados.",
-      [{ text: "OK", onPress: () => console.log("Alerta enviado") }]
-    );
+  // Carrega os dados sempre que você entra na aba
+  useFocusEffect(
+    useCallback(() => {
+      loadHistory();
+    }, [])
+  );
+
+  const loadHistory = async () => {
+    const db = await SQLite.openDatabaseAsync('zela_db');
+    const allRows = await db.getAllAsync('SELECT * FROM history ORDER BY id DESC');
+    setLogs(allRows);
   };
 
-  // Configuração do sensor de movimento
-  const _subscribe = () => {
-    setSubscription(
-      Accelerometer.addListener(accelerometerData => {
-        setData(accelerometerData);
-        
-        // Lógica de detecção de agitação forte
-        const { x, y, z } = accelerometerData;
-        const totalForce = Math.abs(x) + Math.abs(y) + Math.abs(z);
-        
-        if (totalForce > 3.5) { // Ajuste a sensibilidade conforme necessário
-          triggerSOS();
-          _unsubscribe(); // Para de ouvir após disparar para evitar múltiplos alertas
-          setTimeout(_subscribe, 5000); // Reativa após 5 segundos
-        }
-      })
-    );
-    Accelerometer.setUpdateInterval(100);
-  };
-
-  const _unsubscribe = () => {
-    subscription && subscription.remove();
-    setSubscription(null);
-  };
-
-  useEffect(() => {
-    _subscribe();
-    return () => _unsubscribe();
-  }, []);
+  const renderItem = ({ item }: { item: any }) => (
+    <View style={styles.card}>
+      <View style={styles.cardHeader}>
+        <Ionicons name="warning" size={20} color="#ff4d4d" />
+        <Text style={styles.dateText}>{item.date}</Text>
+      </View>
+      <Text style={styles.coordText}>Lat: {item.latitude} | Lon: {item.longitude}</Text>
+      <TouchableOpacity 
+        style={styles.mapButton} 
+        onPress={() => Linking.openURL(item.map_url)}
+      >
+        <Text style={styles.mapButtonText}>Ver no Mapa</Text>
+        <Ionicons name="map-outline" size={16} color="white" />
+      </TouchableOpacity>
+    </View>
+  );
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Centro de Ajuda</Text>
-      <Text style={styles.subtitle}>
-        Pressione o botão ou balance o telemóvel energicamente para pedir socorro.
-      </Text>
-
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity 
-          style={styles.sosButton} 
-          onPress={triggerSOS}
-          activeOpacity={0.8}
-        >
-          <View style={styles.innerCircle}>
-            <Ionicons name="alert-outline" size={80} color={Colors.white} />
-            <Text style={styles.sosText}>SOS</Text>
-          </View>
-        </TouchableOpacity>
-      </View>
-
-      <View style={[styles.infoBox, { backgroundColor: subscription ? '#e8f5e9' : '#ffebee' }]}>
-        <Ionicons 
-          name={subscription ? "flash-outline" : "flash-off-outline"} 
-          size={20} 
-          color={subscription ? "green" : "red"} 
+      <Text style={styles.title}>Registros de SOS</Text>
+      {logs.length === 0 ? (
+        <Text style={styles.emptyText}>Nenhum alerta disparado ainda.</Text>
+      ) : (
+        <FlatList
+          data={logs}
+          keyExtractor={(item) => item.id.toString()}
+          renderItem={renderItem}
+          contentContainerStyle={{ paddingBottom: 20 }}
         />
-        <Text style={styles.infoText}>
-          {subscription ? " Sensor de movimento ativo" : " Sensor desativado"}
-        </Text>
-      </View>
+      )}
     </View>
   );
 };
 
-export default EmergencyScreen;
+export default HistoryScreen;
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
-    padding: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: Colors.primary,
-    fontFamily: Fonts?.rounded || 'sans-serif',
-    marginBottom: 10,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: Colors.secondary,
-    textAlign: 'center',
-    marginBottom: 50,
-    paddingHorizontal: 20,
-  },
-  buttonContainer: {
-    width: 250,
-    height: 250,
-    borderRadius: 125,
-    backgroundColor: Colors.light,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-  },
-  sosButton: {
-    width: 210,
-    height: 210,
-    borderRadius: 105,
-    backgroundColor: Colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  innerCircle: {
-    alignItems: 'center',
-  },
-  sosText: {
-    color: Colors.white,
-    fontSize: 35,
-    fontWeight: 'bold',
-    marginTop: 10,
-  },
-  infoBox: {
-    flexDirection: 'row',
-    marginTop: 40,
-    padding: 12,
-    borderRadius: 12,
-    alignItems: 'center',
-    width: '80%',
-    justifyContent: 'center'
-  },
-  infoText: {
-    color: Colors.secondary,
-    fontSize: 14,
-    fontWeight: '500',
-    marginLeft: 8
-  }
+  container: { flex: 1, backgroundColor: Colors.background, padding: 20 },
+  title: { fontSize: 24, fontWeight: 'bold', color: Colors.primary, marginBottom: 20, marginTop: 40 },
+  card: { backgroundColor: 'white', padding: 15, borderRadius: 12, marginBottom: 15, elevation: 3 },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+  dateText: { fontWeight: 'bold', marginLeft: 8, fontSize: 16 },
+  coordText: { color: '#666', fontSize: 12, marginBottom: 10 },
+  mapButton: { backgroundColor: Colors.primary, flexDirection: 'row', padding: 10, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
+  mapButtonText: { color: 'white', marginRight: 8, fontWeight: '500' },
+  emptyText: { textAlign: 'center', color: '#999', marginTop: 50 }
 });
