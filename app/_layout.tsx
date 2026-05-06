@@ -1,13 +1,14 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
-import { useEffect } from 'react';
-import { Vibration, Alert, Linking } from 'react-native';
-import { VolumeManager } from 'react-native-volume-manager';
-import * as Location from 'expo-location';
-import * as SQLite from 'expo-sqlite'; // Adicionado para salvar no banco
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import * as Location from 'expo-location';
+import { Stack } from 'expo-router';
+import * as SQLite from 'expo-sqlite'; // Adicionado para salvar no banco
+import { StatusBar } from 'expo-status-bar';
+import { useEffect } from 'react';
+import { Alert, Linking, Vibration } from 'react-native';
+import 'react-native-reanimated';
+import { VolumeManager } from 'react-native-volume-manager';
+
 
 import { initializeDatabase } from '../src/database/initialize';
 
@@ -91,10 +92,15 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      </Stack>
-      <StatusBar style="auto" />
+      <Stack
+  screenOptions={{
+    headerShown: false,
+  }}
+>
+  <Stack.Screen name="(tabs)" />
+</Stack>
+
+<StatusBar style="auto" />
     </ThemeProvider>
   );
 }

@@ -1,7 +1,7 @@
-import React from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView } from 'react-native';
-import { Colors } from '../../constants/theme';
 import { Ionicons } from '@expo/vector-icons';
+import React from 'react';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Colors } from '../../constants/theme';
 
 export default function PerfilScreen() {
   return (
@@ -11,7 +11,7 @@ export default function PerfilScreen() {
         <View style={styles.avatarContainer}>
           <Ionicons name="person" size={60} color={Colors.primary} />
         </View>
-        <Text style={styles.userName}>Duda</Text>
+        <Text style={styles.userName}>Min</Text>
         <Text style={styles.userStatus}>Sua proteção está ativa</Text>
       </View>
 
