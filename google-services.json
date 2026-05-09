@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "290499813790",
+    "project_id": "zella-f34bd",
+    "storage_bucket": "zella-f34bd.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:290499813790:android:40d010f9310a59dad4b68f",
+        "android_client_info": {
+          "package_name": "com.zela.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyApc8u1ghUCmKyWjXyqTWipk5nYSHmgkn0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
