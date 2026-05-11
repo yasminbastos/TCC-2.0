@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Zella",
-    "slug": "Zela",
+    "slug": "Zella",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -29,8 +29,7 @@
         "expo-notifications",
         {
           "icon": "./assets/images/icon.png",
-          "color": "#fcf0f6",
-          "sounds": ["./assets/sounds/alert.wav"]
+          "color": "#fcf0f6"
         }
       ],
       [
@@ -52,7 +51,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "b778e813-6ad7-4860-9a73-65451191878a"
+        "projectId": "b778e813-6ad7-4860-9a73-"
       }
     }
   }

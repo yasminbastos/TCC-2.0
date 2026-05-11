@@ -1,4 +1,4 @@
-package com.zela.app
+package com.zella.app
 import expo.modules.splashscreen.SplashScreenManager
 
 import android.os.Build

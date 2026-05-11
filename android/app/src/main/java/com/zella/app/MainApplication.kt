@@ -1,4 +1,4 @@
-package com.zela.app
+package com.zella.app
 
 import android.app.Application
 import android.content.res.Configuration
