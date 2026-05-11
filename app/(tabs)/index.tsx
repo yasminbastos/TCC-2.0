@@ -47,7 +47,7 @@ const HomeScreen = () => {
       {/* Botão Principal: Agora ele leva para a tela de Emergência onde tem o botão de Pânico manual */}
       <TouchableOpacity style={styles.sosCard} onPress={() => router.push('/emergencia')}>
         <View style={styles.sosTextContainer}>
-          <Text style={styles.sosTitle}>Zela, o app que cuida de você</Text>
+          <Text style={styles.sosTitle}>Zella, o app que cuida de você</Text>
           <Text style={styles.sosSubtitle}>Toque aqui para ver opções de ajuda</Text>
         </View>
         <View style={styles.sosCircle}>

@@ -4,14 +4,22 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef } from 'react';
 import { Alert, Linking, Vibration } from 'react-native';
 import 'react-native-reanimated';
-import { db, auth } from '../config/firebase';
-import { doc, getDoc, setDoc, collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
-// HARDWARE E SENSORES
+import { db, auth } from '../config/firebase';
+
+import {
+  doc,
+  getDoc,
+  setDoc,
+  collection,
+  addDoc,
+  serverTimestamp,
+} from 'firebase/firestore';
+
 import * as Location from 'expo-location';
+
 import { VolumeManager } from 'react-native-volume-manager';
 
-// NOTIFICAÇÕES
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 
@@ -28,160 +36,321 @@ Notifications.setNotificationHandler({
 });
 
 export default function RootLayout() {
+
   const colorScheme = useColorScheme();
+
   const cliquesRef = useRef(0);
+
   const timerRef = useRef<any>(null);
 
-  // REGISTRO DE TOKEN
+  // 🚨 EVITA SOS DUPLICADO
+  const executandoSOSRef = useRef(false);
+
   async function registerForPushNotificationsAsync() {
-    if (!Device.isDevice) return;
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
-    let finalStatus = existingStatus;
-    if (existingStatus !== 'granted') {
-      const { status } = await Notifications.requestPermissionsAsync();
-      finalStatus = status;
+
+    if (!Device.isDevice) {
+      console.log('Push só funciona em celular físico.');
+      return;
     }
-    if (finalStatus !== 'granted') return;
 
     try {
-      const tokenResponse = await Notifications.getExpoPushTokenAsync({
-        projectId: '6f73f0fa-6ef9-4f14-960e-afbcc59bbf0b',
-      });
+
+      const { status: existingStatus } =
+        await Notifications.getPermissionsAsync();
+
+      let finalStatus = existingStatus;
+
+      if (existingStatus !== 'granted') {
+
+        const { status } =
+          await Notifications.requestPermissionsAsync();
+
+        finalStatus = status;
+      }
+
+      if (finalStatus !== 'granted') {
+        console.log('Permissão negada.');
+        return;
+      }
+
+      const tokenResponse =
+        await Notifications.getExpoPushTokenAsync({
+          projectId: '6f73f0fa-6ef9-4f14-960e-afbcc59bbf0b',
+        });
+
       const token = tokenResponse.data;
-      console.log("LOG: Token Gerado ->", token);
+
+      console.log('✅ TOKEN:', token);
 
       if (auth.currentUser) {
-        const userRef = doc(db, 'users', auth.currentUser.uid);
-        await setDoc(userRef, { 
-          pushToken: token,
-          email: auth.currentUser.email,
-          uid: auth.currentUser.uid
-        }, { merge: true });
-        console.log("LOG: Documento e Token sincronizados no Firestore");
+
+        await setDoc(
+          doc(db, 'users', auth.currentUser.uid),
+          {
+            pushToken: token,
+            email: auth.currentUser.email,
+            uid: auth.currentUser.uid,
+          },
+          { merge: true }
+        );
+
+        console.log('✅ Token salvo');
       }
+
     } catch (e) {
-      console.error("Erro ao registrar notificações:", e);
+      console.log('❌ Erro token:', e);
     }
   }
 
-  // --- FUNÇÃO SOS OTIMIZADA (Mais rápida e estável) ---
+  // 🚨 FUNÇÃO SOS
   const dispararSOS = async () => {
+
+    // 🚫 EVITA DUPLICAR
+    if (executandoSOSRef.current) {
+      return;
+    }
+
+    executandoSOSRef.current = true;
+
+    console.log('🚨 SOS');
+
     Vibration.vibrate([500, 200, 500]);
-    console.log("🚨 SOS: Protocolo de Alta Velocidade Iniciado!");
-    
+
     try {
-      // 1. Localização (Accuracy.Balanced é muito mais rápido que o High)
-      const { status } = await Location.requestForegroundPermissionsAsync();
+
+      const { status } =
+        await Location.requestForegroundPermissionsAsync();
+
       if (status !== 'granted') {
-        return Alert.alert("Erro", "O Zela precisa de acesso ao GPS.");
+
+        Alert.alert(
+          'Erro',
+          'Permita o GPS.'
+        );
+
+        executandoSOSRef.current = false;
+
+        return;
       }
 
-      const location = await Location.getCurrentPositionAsync({ 
-        accuracy: Location.Accuracy.Balanced 
-      });
-      
-      const { latitude, longitude } = location.coords;
-      
-      // Link do Google Maps corrigido para o formato universal
-      const mapaUrl = `https://www.google.com/maps?q=${latitude},${longitude}`;
+      // 🚀 GPS MAIS RÁPIDO
+      const location =
+        await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Low,
+        });
 
-      // 2. WhatsApp IMEDIATO (Não espera o banco de dados)
-      const msgWpp = `🚨 *ZELA SOS: PRECISO DE AJUDA!* \n\nMinha localização: ${mapaUrl}`;
-      const urlWpp = `whatsapp://send?text=${encodeURIComponent(msgWpp)}`;
+      const { latitude, longitude } =
+        location.coords;
 
-      Linking.openURL(urlWpp).catch(() => {
-        Linking.openURL(`https://wa.me/?text=${encodeURIComponent(msgWpp)}`);
-      });
+      const mapaUrl =
+        `https://www.google.com/maps?q=${latitude},${longitude}`;
 
-      // 3. Processos de Fundo (Firebase e Push rodam sem travar o app)
       if (auth.currentUser) {
-        (async () => {
-          try {
-            const userDoc = await getDoc(doc(db, 'users', auth.currentUser!.uid));
-            const dadosUsuaria = userDoc.data();
-            const idsContatos = dadosUsuaria?.contatosEmergencia || [];
 
-            // Salva no histórico (Sem dar 'await' no fluxo principal)
-            addDoc(collection(db, 'sos_history'), {
-              userId: auth.currentUser!.uid,
-              userName: dadosUsuaria?.nome || 'Usuária',
-              date: new Date().toLocaleString('pt-BR'),
+        try {
+
+          const userDoc = await getDoc(
+            doc(db, 'users', auth.currentUser.uid)
+          );
+
+          const dadosUsuaria = userDoc.data();
+
+          const idsContatos =
+            dadosUsuaria?.contatosEmergencia || [];
+
+          // ✅ SALVA HISTÓRICO
+          await addDoc(
+            collection(db, 'sos_history'),
+            {
+              userId: auth.currentUser.uid,
+
+              userName:
+                dadosUsuaria?.nome || 'Usuária',
+
+              date:
+                new Date().toLocaleString('pt-BR'),
+
               timestamp: serverTimestamp(),
+
               latitude,
               longitude,
-              mapUrl: mapaUrl
-            });
 
-            console.log("✅ LOG: Histórico sendo salvo em segundo plano.");
+              mapUrl: mapaUrl,
+            }
+          );
 
-            // Busca e envia as notificações push
-            if (idsContatos.length > 0) {
-              const tokensParaEnviar: string[] = [];
-              for (const id of idsContatos) {
-                const contatoDoc = await getDoc(doc(db, 'users', id));
-                const token = contatoDoc.data()?.pushToken;
-                if (token) tokensParaEnviar.push(token);
-              }
+          console.log('✅ Histórico salvo');
 
-              if (tokensParaEnviar.length > 0) {
-                fetch('https://exp.host/--/api/v2/push/send', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify(tokensParaEnviar.map(token => ({
-                    to: token,
-                    sound: 'default',
-                    title: '🚨 ALERTA DE EMERGÊNCIA - ZELA',
-                    body: `${dadosUsuaria?.nome || 'Sua amiga'} precisa de ajuda agora!`,
-                    data: { latitude, longitude, mapaUrl },
-                    priority: 'high',
-                  }))),
-                });
-                console.log("✅ LOG: Requisição de Push enviada.");
+          // ✅ BUSCA TOKENS
+          const tokensParaEnviar: string[] = [];
+
+          for (const id of idsContatos) {
+
+            const contatoDoc =
+              await getDoc(
+                doc(db, 'users', id)
+              );
+
+            if (contatoDoc.exists()) {
+
+              const token =
+                contatoDoc.data()?.pushToken;
+
+              if (token) {
+                tokensParaEnviar.push(token);
               }
             }
-          } catch (e) {
-            console.error("Erro no processamento paralelo:", e);
           }
-        })();
+
+          console.log(
+            '📨 Tokens:',
+            tokensParaEnviar.length
+          );
+
+          // ✅ ENVIA PUSH
+          if (tokensParaEnviar.length > 0) {
+
+            const message =
+              tokensParaEnviar.map((token) => ({
+                to: token,
+
+                sound: 'default',
+
+                title:
+                  '🚨 ALERTA DE EMERGÊNCIA - ZELLA',
+
+                body:
+                  `${dadosUsuaria?.nome || 'Sua amiga'} precisa de ajuda agora!`,
+
+                data: {
+                  latitude,
+                  longitude,
+                  mapaUrl,
+                },
+
+                priority: 'high',
+              }));
+
+            const response = await fetch(
+              'https://exp.host/--/api/v2/push/send',
+              {
+                method: 'POST',
+
+                headers: {
+                  'Content-Type': 'application/json',
+                  Accept: 'application/json',
+                },
+
+                body: JSON.stringify(message),
+              }
+            );
+
+            const resJson =
+              await response.json();
+
+            console.log('✅ PUSH:', resJson);
+          }
+
+        } catch (e) {
+          console.log('❌ Erro push:', e);
+        }
       }
 
+      // ✅ WHATSAPP
+      const msgWpp =
+        `🚨 *ZELLA SOS: PRECISO DE AJUDA!* \n\nMinha localização: ${mapaUrl}`;
+
+      const urlWpp =
+        `whatsapp://send?text=${encodeURIComponent(msgWpp)}`;
+
+      Linking.openURL(urlWpp).catch(() => {
+
+        Linking.openURL(
+          `https://wa.me/?text=${encodeURIComponent(msgWpp)}`
+        );
+      });
+
     } catch (error) {
-      console.error("Erro no processo SOS:", error);
-      Alert.alert("Erro no SOS", "Ocorreu um problema ao disparar o alerta.");
+
+      console.log('❌ Erro SOS:', error);
+
+      Alert.alert(
+        'Erro',
+        'Não foi possível enviar o SOS.'
+      );
     }
+
+    // 🔓 LIBERA NOVAMENTE
+    executandoSOSRef.current = false;
   };
 
   useEffect(() => {
+
     registerForPushNotificationsAsync();
 
-    const subscription = VolumeManager.addVolumeListener(() => {
-      cliquesRef.current += 1;
-      if (timerRef.current) clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => {
-        cliquesRef.current = 0;
-      }, 1500); 
+    const subscription =
+      VolumeManager.addVolumeListener(() => {
 
-      if (cliquesRef.current >= 3) {
-        cliquesRef.current = 0;
-        if (timerRef.current) clearTimeout(timerRef.current);
-        dispararSOS();
-      }
-    });
+        cliquesRef.current += 1;
+
+        console.log(
+          '🔊 Cliques:',
+          cliquesRef.current
+        );
+
+        if (timerRef.current) {
+          clearTimeout(timerRef.current);
+        }
+
+        timerRef.current = setTimeout(() => {
+          cliquesRef.current = 0;
+        }, 2000);
+
+        if (cliquesRef.current >= 3) {
+
+          cliquesRef.current = 0;
+
+          if (timerRef.current) {
+            clearTimeout(timerRef.current);
+          }
+
+          dispararSOS();
+        }
+      });
 
     return () => {
+
       subscription.remove();
-      if (timerRef.current) clearTimeout(timerRef.current);
+
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+      }
     };
+
   }, []);
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack screenOptions={{ headerShown: false }}>
+
+    <ThemeProvider
+      value={
+        colorScheme === 'dark'
+          ? DarkTheme
+          : DefaultTheme
+      }
+    >
+
+      <Stack
+        screenOptions={{
+          headerShown: false,
+        }}
+      >
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="auth/login" />
         <Stack.Screen name="auth/signup" />
       </Stack>
+
       <StatusBar style="auto" />
+
     </ThemeProvider>
   );
 }

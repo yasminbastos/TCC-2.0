@@ -1,12 +1,13 @@
 {
   "expo": {
-    "name": "Zela",
+    "name": "Zella",
     "slug": "Zela",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "zela",
+    "scheme": "zella",
     "userInterfaceStyle": "automatic",
+    "owner": "maymay007",
     "ios": {
       "supportsTablet": true
     },
@@ -15,7 +16,7 @@
         "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#fcf0f6"
       },
-      "package": "com.zela.app",
+      "package": "com.zella.app",
       "googleServicesFile": "./google-services.json"
     },
     "web": {
@@ -24,7 +25,14 @@
     },
     "plugins": [
       "expo-router",
-      "expo-notifications",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#fcf0f6",
+          "sounds": ["./assets/sounds/alert.wav"]
+        }
+      ],
       [
         "expo-splash-screen",
         {
@@ -46,8 +54,6 @@
       "eas": {
         "projectId": "b778e813-6ad7-4860-9a73-65451191878a"
       }
-    },
-    "owner": "maymay007"
-  },
-  "owner": "mariaeduarda413"
+    }
+  }
 }

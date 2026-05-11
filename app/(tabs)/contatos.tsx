@@ -80,7 +80,7 @@ export default function ContatosScreen() {
       const querySnapshot = await getDocs(q);
 
       if (querySnapshot.empty) {
-        Alert.alert("Não encontrado", "Este e-mail não está cadastrado no Zela. Peça para a pessoa criar uma conta primeiro.");
+        Alert.alert("Não encontrado", "Este e-mail não está cadastrado no Zella. Peça para a pessoa criar uma conta primeiro.");
         setLoading(false);
         return;
       }
@@ -130,7 +130,7 @@ export default function ContatosScreen() {
     <View style={styles.container}>
       <Text style={styles.headerTitle}>Contatos de Emergência</Text>
       <Text style={styles.description}>
-        Adicione e-mails de pessoas que possuem o app Zela para receberem seus alertas de localização.
+        Adicione e-mails de pessoas que possuem o app Zella para receberem seus alertas de localização.
       </Text>
 
       <View style={styles.form}>

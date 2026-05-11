@@ -13,7 +13,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from 'react-native';
 import { Colors } from '../../constants/theme';
 
@@ -22,6 +22,7 @@ export default function LoginScreen() {
   const [senha, setSenha] = useState('');
   const [showSenha, setShowSenha] = useState(false);
   const [loading, setLoading] = useState(false);
+
   const router = useRouter();
 
   const handleLogin = async () => {
@@ -31,10 +32,12 @@ export default function LoginScreen() {
     }
 
     setLoading(true);
+
     try {
       await signInWithEmailAndPassword(auth, email, senha);
+
       router.replace('/(tabs)');
-    } catch {
+    } catch (error) {
       Alert.alert('Erro', 'E-mail ou senha inválidos.');
     } finally {
       setLoading(false);
@@ -48,41 +51,73 @@ export default function LoginScreen() {
     >
       <View style={styles.inner}>
 
+        {/* LOGO */}
         <View style={styles.header}>
           <Image
             source={require('../../assets/images/icon.png')}
             style={styles.logo}
           />
+
           <Text style={styles.title}>Zella</Text>
-          <Text style={styles.subtitle}>Seu espaço seguro</Text>
+
+          <Text style={styles.subtitle}>
+            Seu espaço seguro
+          </Text>
         </View>
 
+        {/* FORMULÁRIO */}
         <View style={styles.form}>
+
+          {/* INPUT EMAIL */}
           <View style={styles.inputWrapper}>
-            <Ionicons name="mail-outline" size={20} color={Colors.primary} />
+            <Ionicons
+              name="mail-outline"
+              size={20}
+              color={Colors.primary}
+            />
+
             <TextInput
               style={styles.input}
               placeholder="E-mail"
+              placeholderTextColor="#999"
               value={email}
               onChangeText={setEmail}
               autoCapitalize="none"
+              keyboardType="email-address"
             />
           </View>
 
+          {/* INPUT SENHA */}
           <View style={styles.inputWrapper}>
-            <Ionicons name="lock-closed-outline" size={20} color={Colors.primary} />
+            <Ionicons
+              name="lock-closed-outline"
+              size={20}
+              color={Colors.primary}
+            />
+
             <TextInput
               style={styles.input}
               placeholder="Senha"
+              placeholderTextColor="#999"
               value={senha}
               onChangeText={setSenha}
               secureTextEntry={!showSenha}
+              autoCapitalize="none"
             />
-            <TouchableOpacity onPress={() => setShowSenha(!showSenha)}>
-              <Ionicons name={showSenha ? 'eye-off' : 'eye'} size={20} color="#888" />
+
+            <TouchableOpacity
+              onPress={() => setShowSenha(!showSenha)}
+              style={styles.eyeButton}
+            >
+              <Ionicons
+                name={showSenha ? 'eye-off-outline' : 'eye-outline'}
+                size={22}
+                color="#888"
+              />
             </TouchableOpacity>
           </View>
 
+          {/* BOTÃO LOGIN */}
           <TouchableOpacity
             style={styles.button}
             onPress={handleLogin}
@@ -91,15 +126,25 @@ export default function LoginScreen() {
             {loading ? (
               <ActivityIndicator color="#FFF" />
             ) : (
-              <Text style={styles.buttonText}>ENTRAR</Text>
+              <Text style={styles.buttonText}>
+                ENTRAR
+              </Text>
             )}
           </TouchableOpacity>
         </View>
 
+        {/* RODAPÉ */}
         <View style={styles.footerRow}>
-          <Text style={styles.footerText}>Não tem conta? </Text>
-          <TouchableOpacity onPress={() => router.push('/auth/signup')}>
-            <Text style={styles.link}>Cadastre-se</Text>
+          <Text style={styles.footerText}>
+            Não tem conta?
+          </Text>
+
+          <TouchableOpacity
+            onPress={() => router.push('/auth/signup')}
+          >
+            <Text style={styles.link}>
+              Cadastre-se
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -109,15 +154,42 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FDFBF9' },
-  inner: { flex: 1, justifyContent: 'center', padding: 25 },
+  container: {
+    flex: 1,
+    backgroundColor: '#FDFBF9',
+  },
 
-  header: { alignItems: 'center', marginBottom: 30 },
-  logo: { width: 80, height: 80, marginBottom: 10 },
-  title: { fontSize: 28, fontWeight: 'bold', color: Colors.primary },
-  subtitle: { fontSize: 14, color: '#8E8E8E' },
+  inner: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: 25,
+  },
 
-  form: { gap: 12 },
+  header: {
+    alignItems: 'center',
+    marginBottom: 30,
+  },
+
+  logo: {
+    width: 80,
+    height: 80,
+    marginBottom: 10,
+  },
+
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: Colors.primary,
+  },
+
+  subtitle: {
+    fontSize: 14,
+    color: '#8E8E8E',
+  },
+
+  form: {
+    gap: 12,
+  },
 
   inputWrapper: {
     flexDirection: 'row',
@@ -128,10 +200,17 @@ const styles = StyleSheet.create({
     height: 55,
     borderWidth: 1,
     borderColor: '#EFEFEF',
-    justifyContent: 'space-between'
   },
 
-  input: { flex: 1, marginLeft: 10 },
+  input: {
+    flex: 1,
+    marginLeft: 10,
+    color: '#000',
+  },
+
+  eyeButton: {
+    paddingLeft: 10,
+  },
 
   button: {
     backgroundColor: Colors.primary,
@@ -139,18 +218,27 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 10
+    marginTop: 10,
   },
 
-  buttonText: { color: '#FFF', fontWeight: 'bold' },
+  buttonText: {
+    color: '#FFF',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
 
   footerRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: 20
+    marginTop: 20,
   },
 
-  footerText: { color: '#777' },
+  footerText: {
+    color: '#777',
+  },
 
-  link: { color: Colors.accent, fontWeight: 'bold' }
+  link: {
+    color: Colors.accent,
+    fontWeight: 'bold',
+  },
 });
