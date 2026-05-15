@@ -124,7 +124,7 @@ export default function SignUpScreen() {
         <View style={styles.header}>
 
           <Image
-            source={require('../../assets/images/icon.png')}
+            source={require('../../assets/images/icon2.png')}
             style={styles.logo}
           />
 
