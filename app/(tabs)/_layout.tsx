@@ -54,30 +54,6 @@ export default function TabLayout() {
         }}
       />
 
-      <Tabs.Screen
-        name="noticias"
-        options={{
-          title: 'Educar',
-          tabBarIcon: ({ color, size }) => <Ionicons name="book-outline" size={size} color={color} />,
-        }}
-      />
-
-      <Tabs.Screen
-        name="perfil"
-        options={{
-          title: 'Perfil',
-          tabBarIcon: ({ color, size }) => <Ionicons name="person-outline" size={size} color={color} />,
-        }}
-      />
-
-      {<Tabs.Screen
-        name="contatos"
-        options={{
-          href: null, // Isso esconde o ícone da barra de baixo, mas a página continua existindo
-        }}
-      /> }
-      
-
     </Tabs>
   );
 }

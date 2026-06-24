@@ -2,6 +2,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import {
   createUserWithEmailAndPassword,
+  sendEmailVerification // <-- ADICIONADO: Import para enviar o e-mail de validação
+  ,
   updateProfile
 } from 'firebase/auth';
 
@@ -54,6 +56,18 @@ export default function SignUpScreen() {
       return;
     }
 
+    // 🔒 VALIDAÇÃO DE SENHA FORTE (REGEX)
+    // Exige: Mínimo 8 caracteres, pelo menos 1 letra maiúscula, 1 minúscula e 1 número.
+    const regexSenhaForte = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d]{8,}$/;
+
+    if (!regexSenhaForte.test(senha)) {
+      Alert.alert(
+        'Senha muito fraca',
+        'A sua senha deve conter no mínimo 8 caracteres, incluindo pelo menos uma letra maiúscula, uma letra minúscula e um número.'
+      );
+      return; // Para o código aqui e não manda pro Firebase
+    }
+
     setLoading(true);
 
     try {
@@ -83,12 +97,19 @@ export default function SignUpScreen() {
         createdAt: new Date(),
       });
 
-      Alert.alert(
-        'Sucesso',
-        'Conta criada com sucesso!'
-      );
+      // 📧 DISPARA O E-MAIL DE VERIFICAÇÃO AUTOMÁTICO
+      await sendEmailVerification(user);
 
-      router.replace('/(tabs)');
+      Alert.alert(
+        'Conta criada!',
+        'Um e-mail de verificação foi enviado para o seu endereço. Por favor, valide sua conta no link recebido antes de fazer o login.',
+        [
+          {
+            text: 'OK',
+            onPress: () => router.replace('/auth/login'), // Manda direto para o Login para se autenticar
+          },
+        ]
+      );
 
     } catch (error: any) {
 
@@ -301,44 +322,36 @@ export default function SignUpScreen() {
 }
 
 const styles = StyleSheet.create({
-
   container: {
     flex: 1,
     backgroundColor: '#FDFBF9',
   },
-
   inner: {
     flex: 1,
     justifyContent: 'center',
     padding: 25,
   },
-
   header: {
     alignItems: 'center',
     marginBottom: 30,
   },
-
   logo: {
     width: 80,
     height: 80,
     marginBottom: 10,
   },
-
   title: {
     fontSize: 26,
     fontWeight: 'bold',
     color: Colors.primary,
   },
-
   subtitle: {
     fontSize: 14,
     color: '#8E8E8E',
   },
-
   form: {
     gap: 12,
   },
-
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -349,17 +362,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#EFEFEF',
   },
-
   input: {
     flex: 1,
     marginLeft: 10,
     color: '#000',
   },
-
   eyeButton: {
     paddingLeft: 10,
   },
-
   button: {
     backgroundColor: Colors.primary,
     height: 55,
@@ -368,22 +378,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 10,
   },
-
   buttonText: {
     color: '#FFF',
     fontWeight: 'bold',
     fontSize: 16,
   },
-
   footer: {
     textAlign: 'center',
     marginTop: 20,
     color: '#777',
   },
-
   link: {
     color: Colors.accent,
     fontWeight: 'bold',
   },
-
 });

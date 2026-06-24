@@ -5,6 +5,7 @@ import {
   GoogleAuthProvider,
   signInWithCredential,
   signInWithEmailAndPassword,
+  sendPasswordResetEmail // <-- ADICIONADO: Método do Firebase para recuperar senha
 } from 'firebase/auth';
 
 import React, { useState } from 'react';
@@ -46,7 +47,7 @@ export default function LoginScreen() {
 
   const router = useRouter();
 
-  // LOGIN EMAIL E SENHA
+  // LOGIN EMAIL E SENHA (Com trava de verificação de e-mail)
   const handleLogin = async () => {
 
     if (!email || !senha) {
@@ -58,11 +59,23 @@ export default function LoginScreen() {
 
     try {
 
-      await signInWithEmailAndPassword(
+      const userCredential = await signInWithEmailAndPassword(
         auth,
         email,
         senha
       );
+
+      const user = userCredential.user;
+
+      // 🛑 TRAVA DE SEGURANÇA: Se o usuário não validou o e-mail, barra o login
+      if (!user.emailVerified) {
+        Alert.alert(
+          'E-mail não verificado',
+          'Você precisa validar a sua conta através do link enviado ao seu e-mail antes de acessar o aplicativo.'
+        );
+        setLoading(false);
+        return; 
+      }
 
       router.replace('/(tabs)');
 
@@ -76,6 +89,31 @@ export default function LoginScreen() {
     } finally {
 
       setLoading(false);
+    }
+  };
+
+  // 📧 RECOVERY: Esqueci a senha
+  const handleEsqueceuSenha = async () => {
+    if (!email) {
+      Alert.alert(
+        'Aviso', 
+        'Por favor, insira o seu e-mail no campo de texto acima para que possamos enviar o link de redefinição.'
+      );
+      return;
+    }
+
+    try {
+      await sendPasswordResetEmail(auth, email.trim());
+      Alert.alert(
+        'E-mail enviado', 
+        'Um link para redefinição de senha foi enviado para o endereço informado. Verifique também sua caixa de spam.'
+      );
+    } catch (error: any) {
+      console.log(error);
+      Alert.alert(
+        'Erro', 
+        'Não foi possível enviar o e-mail de redefinição. Verifique se o endereço está correto.'
+      );
     }
   };
 
@@ -226,6 +264,14 @@ export default function LoginScreen() {
 
           </View>
 
+          {/* BOTÃO ESQUECEU A SENHA */}
+          <TouchableOpacity 
+            onPress={handleEsqueceuSenha} 
+            style={styles.forgotContainer}
+          >
+            <Text style={styles.forgotText}>Esqueceu a senha?</Text>
+          </TouchableOpacity>
+
           {/* LOGIN */}
           <TouchableOpacity
             style={styles.button}
@@ -324,44 +370,36 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-
   container: {
     flex: 1,
     backgroundColor: '#FDFBF9',
   },
-
   inner: {
     flex: 1,
     justifyContent: 'center',
     padding: 25,
   },
-
   header: {
     alignItems: 'center',
     marginBottom: 30,
   },
-
   logo: {
     width: 85,
     height: 85,
     marginBottom: 10,
   },
-
   title: {
     fontSize: 30,
     fontWeight: 'bold',
     color: Colors.primary,
   },
-
   subtitle: {
     fontSize: 14,
     color: '#8E8E8E',
   },
-
   form: {
     gap: 12,
   },
-
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -372,93 +410,86 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#EFEFEF',
   },
-
   input: {
     flex: 1,
     marginLeft: 10,
     color: '#000',
   },
-
   eyeButton: {
     paddingLeft: 10,
   },
-
+  forgotContainer: {
+    alignSelf: 'flex-end',
+    marginVertical: 2,
+    marginRight: 4,
+  },
+  forgotText: {
+    color: '#8E8E8E',
+    fontSize: 13,
+    fontWeight: '600',
+  },
   button: {
     backgroundColor: Colors.primary,
     height: 55,
     borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 10,
+    marginTop: 5,
   },
-
   buttonText: {
     color: '#FFF',
     fontWeight: 'bold',
     fontSize: 16,
   },
-
   dividerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginVertical: 10,
   },
-
   dividerLine: {
     flex: 1,
     height: 1,
     backgroundColor: '#EFEFEF',
   },
-
   dividerText: {
     marginHorizontal: 10,
     color: '#999',
     fontSize: 14,
   },
-
   googleButton: {
     backgroundColor: Colors.primary,
     height: 55,
     borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
-
     shadowColor: '#000',
-
     shadowOffset: {
       width: 0,
       height: 2,
     },
-
     shadowOpacity: 0.1,
     shadowRadius: 3,
-
     elevation: 3,
   },
-
   googleButtonContent: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
   },
-
   googleButtonText: {
     color: '#FFF',
     fontWeight: '700',
     fontSize: 16,
     letterSpacing: 0.5,
   },
-
   footerRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     marginTop: 25,
   },
-
   footerText: {
     color: '#777',
   },
-
   link: {
     color: Colors.accent,
     fontWeight: 'bold',
