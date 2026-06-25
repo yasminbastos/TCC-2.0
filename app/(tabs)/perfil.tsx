@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -6,23 +6,100 @@ import {
   StyleSheet,
   Alert,
   ScrollView,
+  StatusBar,
+  ActivityIndicator,
 } from "react-native";
 
 import { signOut } from "firebase/auth";
-import { auth } from "../../config/firebase";
-import { router } from "expo-router";
+import { auth, db } from "../../config/firebase";
+import { useRouter, useFocusEffect } from "expo-router";
+import { doc, getDoc } from "firebase/firestore";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import {
   Ionicons,
   MaterialIcons,
 } from "@expo/vector-icons";
 
+// Mapeamento dos avatares utilizando as cores oficiais do aplicativo
+const AVATARES = [
+  { id: "person", icon: "person", color: "#9c3569" },
+  { id: "happy", icon: "happy-outline", color: "#9c3569" },
+  { id: "planet", icon: "planet-outline", color: "#9c3569" },
+  { id: "star", icon: "star-outline", color: "#9c3569" },
+  { id: "paw", icon: "paw-outline", color: "#9c3569" },
+  { id: "leaf", icon: "leaf-outline", color: "#9c3569" },
+];
+
+// Dicionário de tradução local
+const textosPerfil = {
+  pt: {
+    titulo: "Área do Usuário",
+    loadingText: "Carregando...",
+    usuarioPadrao: "Usuário",
+    meuPerfil: "Meu Perfil",
+    configuracoes: "Configurações",
+    politica: "Política de Privacidade",
+    sair: "Sair do aplicativo",
+    erro: "Erro",
+    erroMsg: "Não foi possível sair da conta.",
+  },
+  en: {
+    titulo: "User Area",
+    loadingText: "Loading...",
+    usuarioPadrao: "User",
+    meuPerfil: "My Profile",
+    configuracoes: "Settings",
+    politica: "Privacy Policy",
+    sair: "Log Out",
+    erro: "Error",
+    erroMsg: "Could not log out.",
+  },
+};
+
 export default function Perfil() {
-  // Pega os dados do usuário logado no Firebase
+  const router = useRouter();
   const user = auth.currentUser;
-  
-  // Lógica simples para o nome: usa o displayName ou a parte antes do @ do email
-  const userName = user?.displayName || user?.email?.split('@')[0] || "Usuário";
+
+  const [idioma, setIdioma] = useState<"pt" | "en">("pt");
+  const [username, setUsername] = useState("");
+  const [avatarId, setAvatarId] = useState("person");
+  const [loading, setLoading] = useState(true);
+
+  // Carrega o idioma e os dados de forma reativa sempre que focar na tela
+  useFocusEffect(
+    useCallback(() => {
+      async function buscarDadosUsuario() {
+        if (!user) return;
+        try {
+          // Atualiza o idioma primeiro
+          const salvo = await AsyncStorage.getItem("@zella_idioma");
+          if (salvo === "pt" || salvo === "en") {
+            setIdioma(salvo);
+          }
+
+          const docRef = doc(db, "usuarios", user.uid);
+          const docSnap = await getDoc(docRef);
+
+          if (docSnap.exists()) {
+            const dados = docSnap.data();
+            setUsername(dados.username || user.displayName || user.email?.split("@")[0] || "Usuário");
+            setAvatarId(dados.avatarId || "person");
+          } else {
+            setUsername(user.displayName || user.email?.split("@")[0] || "Usuário");
+          }
+        } catch (error) {
+          console.log("Erro ao buscar dados do perfil:", error);
+        } finally {
+          setLoading(false);
+        }
+      }
+
+      buscarDadosUsuario();
+    }, [user])
+  );
+
+  const t = textosPerfil[idioma];
   const userEmail = user?.email || "email@exemplo.com";
 
   const handleLogout = async () => {
@@ -31,69 +108,92 @@ export default function Perfil() {
       router.replace("/auth/login");
     } catch (error) {
       console.log("Erro ao sair:", error);
-      Alert.alert("Erro", "Não foi possível sair da conta.");
+      Alert.alert(t.erro, t.erroMsg);
     }
   };
+
+  // Encontra o objeto do avatar atual com base no ID salvo
+  const currentAvatar = AVATARES.find((a) => a.id === avatarId) || AVATARES[0];
 
   return (
     <ScrollView
       style={styles.container}
       showsVerticalScrollIndicator={false}
     >
-      {/* HEADER COLORIDO */}
-      <View style={styles.header} />
+      <StatusBar barStyle="light-content" backgroundColor="#751935" />
+
+      {/* HEADER COLORIDO INTEGRADO */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>{t.titulo}</Text>
+      </View>
 
       {/* SEÇÃO DE PERFIL */}
       <View style={styles.profileSection}>
         <View style={styles.avatarContainer}>
-          {/* Círculo com Ícone em vez de Image */}
+          {/* A borda agora segue a cor padrão do app (#751935) para combinar com o Header */}
           <View style={styles.avatarPlaceholder}>
-            <Ionicons name="person" size={80} color="#b36482ff" />
+            {loading ? (
+              <ActivityIndicator size="small" color="#751935" />
+            ) : (
+              <Ionicons name={currentAvatar.icon as any} size={75} color={currentAvatar.color} />
+            )}
           </View>
-          
         </View>
 
-        <Text style={styles.name}>{userName}</Text>
+        <Text style={styles.name}>{loading ? t.loadingText : (username === "Usuário" ? t.usuarioPadrao : username)}</Text>
         <Text style={styles.email}>{userEmail}</Text>
       </View>
 
       {/* MENU DE OPÇÕES */}
       <View style={styles.menuContainer}>
-        <TouchableOpacity style={styles.menuItem}>
+        
+        {/* MEU PERFIL */}
+        <TouchableOpacity 
+          style={styles.menuItem}
+          onPress={() => router.push("/auth/meu-perfil" as any)}
+        >
           <View style={styles.leftContent}>
             <View style={styles.iconBox}>
-              <Ionicons name="person-outline" size={22} color="#9c3569ff" />
+              <Ionicons name="person-outline" size={22} color="#9c3569" />
             </View>
-            <Text style={styles.menuText}>Meu Perfil</Text>
+            <Text style={styles.menuText}>{t.meuPerfil}</Text>
           </View>
-          <Ionicons name="chevron-forward" size={22} color="#C7C7C7" />
+          <Ionicons name="chevron-forward" size={20} color="#C7C7C7" />
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.menuItem}>
+        {/* CONFIGURAÇÕES */}
+        <TouchableOpacity 
+          style={styles.menuItem}
+          onPress={() => router.push("/auth/configuracoes" as any)}
+        >
           <View style={styles.leftContent}>
             <View style={styles.iconBox}>
-              <Ionicons name="settings-outline" size={22} color="#9c3569ff" />
+              <Ionicons name="settings-outline" size={22} color="#9c3569" />
             </View>
-            <Text style={styles.menuText}>Configurações</Text>
+            <Text style={styles.menuText}>{t.configuracoes}</Text>
           </View>
-          <Ionicons name="chevron-forward" size={22} color="#C7C7C7" />
+          <Ionicons name="chevron-forward" size={20} color="#C7C7C7" />
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.menuItem}>
+        {/* POLÍTICA DE PRIVACIDADE */}
+        <TouchableOpacity 
+          style={styles.menuItem}
+          onPress={() => router.push("/auth/politica" as any)}
+        >
           <View style={styles.leftContent}>
             <View style={styles.iconBox}>
-              <MaterialIcons name="privacy-tip" size={22} color="#9c3569ff" />
+              <MaterialIcons name="privacy-tip" size={22} color="#9c3569" />
             </View>
-            <Text style={styles.menuText}>Política de Privacidade</Text>
+            <Text style={styles.menuText}>{t.politica}</Text>
           </View>
-          <Ionicons name="chevron-forward" size={22} color="#C7C7C7" />
+          <Ionicons name="chevron-forward" size={20} color="#C7C7C7" />
         </TouchableOpacity>
       </View>
 
       {/* BOTÃO SAIR */}
       <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-        <Ionicons name="log-out-outline" size={24} color="#9c3569ff" />
-        <Text style={styles.logoutText}>Sair do aplicativo</Text>
+        <Ionicons name="log-out-outline" size={22} color="#9c3569" />
+        <Text style={styles.logoutText}>{t.sair}</Text>
       </TouchableOpacity>
     </ScrollView>
   );
@@ -102,111 +202,114 @@ export default function Perfil() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#FFF5FA",
+    backgroundColor: "#FDF9FA",
   },
   header: {
-    backgroundColor: "#751935ff",
-    height: 250,
-    borderBottomLeftRadius: 70,
-    borderBottomRightRadius: 70,
+    backgroundColor: "#751935",
+    height: 220,
+    borderBottomLeftRadius: 50,
+    borderBottomRightRadius: 50,
+    alignItems: "center",
+    paddingTop: 60,
+  },
+  headerTitle: {
+    color: "#FFF",
+    fontSize: 18,
+    fontWeight: "600",
+    letterSpacing: 0.5,
+    opacity: 0.9,
   },
   profileSection: {
     alignItems: "center",
-    marginTop: -100,
+    marginTop: -90,
   },
   avatarContainer: {
     position: "relative",
   },
   avatarPlaceholder: {
-    width: 150,
-    height: 150,
-    borderRadius: 75,
+    width: 140,
+    height: 140,
+    borderRadius: 70,
     backgroundColor: "#fff",
     justifyContent: "center",
     alignItems: "center",
-    borderWidth: 5,
-    borderColor: "#ac5f7dff",
-    // Sombra para o círculo
-    elevation: 5,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 5,
-  },
-  onlineBadge: {
-    position: "absolute",
-    bottom: 8,
-    right: 10,
-    width: 25,
-    height: 25,
-    borderRadius: 12.5,
-    borderWidth: 3,
-    borderColor: "#fff",
+    borderWidth: 4,
+    borderColor: "#751935",
+    
+    elevation: 8,
+    shadowColor: "#751935",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
   },
   name: {
-    fontSize: 28,
-    fontWeight: "bold",
+    fontSize: 24,
+    fontWeight: "700",
     color: "#3D1F2B",
     marginTop: 15,
   },
   email: {
-    fontSize: 16,
+    fontSize: 14,
     color: "#8E6B79",
-    marginTop: 5,
+    marginTop: 4,
   },
   menuContainer: {
-    marginTop: 30,
-    paddingHorizontal: 20,
-    gap: 15,
+    marginTop: 35,
+    paddingHorizontal: 24,
+    gap: 14,
   },
   menuItem: {
     backgroundColor: "#fff",
-    borderRadius: 22,
-    paddingVertical: 18,
-    paddingHorizontal: 18,
+    borderRadius: 20,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    elevation: 3,
+    
+    elevation: 2,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
   },
   leftContent: {
     flexDirection: "row",
     alignItems: "center",
   },
   iconBox: {
-    width: 45,
-    height: 45,
+    width: 42,
+    height: 42,
     borderRadius: 14,
-    backgroundColor: "#e9d6ddff",
+    backgroundColor: "#F7ECEF",
     justifyContent: "center",
     alignItems: "center",
   },
   menuText: {
-    fontSize: 17,
-    fontWeight: "500",
-    marginLeft: 15,
+    fontSize: 16,
+    fontWeight: "600",
+    marginLeft: 14,
     color: "#3D1F2B",
   },
   logoutButton: {
-    marginTop: 25,
-    marginBottom: 40,
-    marginHorizontal: 20,
-    backgroundColor: "#fff",
-    borderRadius: 22,
-    paddingVertical: 20,
+    marginTop: 30,
+    marginBottom: 50,
+    marginHorizontal: 24,
+    backgroundColor: "#FFF",
+    borderRadius: 20,
+    paddingVertical: 18,
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
     gap: 10,
-    elevation: 4,
+    borderWidth: 1,
+    borderColor: "#F3ECEF",
+    
+    elevation: 1,
   },
   logoutText: {
-    color: "#963352ff",
-    fontSize: 18,
-    fontWeight: "600",
+    color: "#9c3569",
+    fontSize: 16,
+    fontWeight: "700",
   },
 });

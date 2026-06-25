@@ -1,14 +1,14 @@
 import { auth } from '@/config/firebase';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import {
   GoogleAuthProvider,
   signInWithCredential,
   signInWithEmailAndPassword,
-  sendPasswordResetEmail // <-- ADICIONADO: Método do Firebase para recuperar senha
+  sendPasswordResetEmail
 } from 'firebase/auth';
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 
 import {
   ActivityIndicator,
@@ -28,6 +28,7 @@ import {
   statusCodes,
 } from '@react-native-google-signin/google-signin';
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '../../constants/theme';
 
 // CONFIG GOOGLE
@@ -36,29 +37,96 @@ GoogleSignin.configure({
     '290499813790-ocvq68ahnp9nsmahqc18c409ucnsseh6.apps.googleusercontent.com',
 });
 
-export default function LoginScreen() {
+// Dicionário de Idiomas para Login
+const textosLogin = {
+  pt: {
+    seletor: "EN",
+    subtitulo: "Seu espaço seguro",
+    avisoCampos: "Preencha e-mail e senha.",
+    titEmailVerificado: "E-mail não verificado",
+    msgEmailVerificado: "Você precisa validar a sua conta através do link enviado ao seu e-mail antes de acessar o aplicativo.",
+    errInvalidos: "E-mail ou senha inválidos.",
+    avisoReset: "Por favor, insira o seu e-mail no campo de texto acima para que possamos enviar o link de redefinição.",
+    titReset: "E-mail enviado",
+    msgReset: "Um link para redefinição de senha foi enviado para o endereço informado. Verifique também sua caixa de spam.",
+    errReset: "Não foi possível enviar o e-mail de redefinição. Verifique se o endereço está correto.",
+    errGoogleToken: "Token Google não encontrado.",
+    errGoogleGeral: "Não foi possível entrar com Google.",
+    esqueceuSenha: "Esqueceu a senha?",
+    btnEntrar: "ENTRAR",
+    divisor: "ou",
+    btnGoogle: "Entrar com Google",
+    semConta: "Não tem conta?",
+    cadastrese: "Cadastre-se",
+  },
+  en: {
+    seletor: "PT",
+    subtitulo: "Your safe space",
+    avisoCampos: "Please fill in both email and password.",
+    titEmailVerificado: "Email not verified",
+    msgEmailVerificado: "You need to validate your account through the link sent to your email before accessing the app.",
+    errInvalidos: "Invalid email or password.",
+    avisoReset: "Please enter your email in the text field above so we can send the reset link.",
+    titReset: "Email sent",
+    msgReset: "A password reset link has been sent to the provided address. Please also check your spam folder.",
+    errReset: "Could not send reset email. Please verify if the address is correct.",
+    errGoogleToken: "Google Token not found.",
+    errGoogleGeral: "Could not sign in with Google.",
+    esqueceuSenha: "Forgot password?",
+    btnEntrar: "SIGN IN",
+    divisor: "or",
+    btnGoogle: "Sign in with Google",
+    semConta: "Don't have an account?",
+    cadastrese: "Sign up",
+  }
+};
 
+export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [showSenha, setShowSenha] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [idioma, setIdioma] = useState<'pt' | 'en'>('pt');
 
   const router = useRouter();
 
-  // LOGIN EMAIL E SENHA (Com trava de verificação de e-mail)
-  const handleLogin = async () => {
+  // Monitora o AsyncStorage toda vez que o usuário entra na tela
+  useFocusEffect(
+    useCallback(() => {
+      const carregarIdioma = async () => {
+        try {
+          const salvo = await AsyncStorage.getItem('@zella_idioma');
+          if (salvo === 'pt' || salvo === 'en') {
+            setIdioma(salvo);
+          }
+        } catch (e) {
+          console.log(e);
+        }
+      };
+      carregarIdioma();
+    }, [])
+  );
 
+  // Alterna o idioma e salva a preferência global
+  const alternarIdioma = async () => {
+    const novoIdioma = idioma === 'pt' ? 'en' : 'pt';
+    setIdioma(novoIdioma);
+    await AsyncStorage.setItem('@zella_idioma', novoIdioma);
+  };
+
+  const t = textosLogin[idioma];
+
+  const handleLogin = async () => {
     if (!email || !senha) {
-      Alert.alert('Aviso', 'Preencha e-mail e senha.');
+      Alert.alert(idioma === 'pt' ? 'Aviso' : 'Notice', t.avisoCampos);
       return;
     }
 
     setLoading(true);
 
     try {
-
       const userCredential = await signInWithEmailAndPassword(
         auth,
         email,
@@ -67,12 +135,8 @@ export default function LoginScreen() {
 
       const user = userCredential.user;
 
-      // 🛑 TRAVA DE SEGURANÇA: Se o usuário não validou o e-mail, barra o login
       if (!user.emailVerified) {
-        Alert.alert(
-          'E-mail não verificado',
-          'Você precisa validar a sua conta através do link enviado ao seu e-mail antes de acessar o aplicativo.'
-        );
+        Alert.alert(t.titEmailVerificado, t.msgEmailVerificado);
         setLoading(false);
         return; 
       }
@@ -80,140 +144,83 @@ export default function LoginScreen() {
       router.replace('/(tabs)');
 
     } catch (error) {
-
-      Alert.alert(
-        'Erro',
-        'E-mail ou senha inválidos.'
-      );
-
+      Alert.alert(idioma === 'pt' ? 'Erro' : 'Error', t.errInvalidos);
     } finally {
-
       setLoading(false);
     }
   };
 
-  // 📧 RECOVERY: Esqueci a senha
   const handleEsqueceuSenha = async () => {
     if (!email) {
-      Alert.alert(
-        'Aviso', 
-        'Por favor, insira o seu e-mail no campo de texto acima para que possamos enviar o link de redefinição.'
-      );
+      Alert.alert(idioma === 'pt' ? 'Aviso' : 'Notice', t.avisoReset);
       return;
     }
 
     try {
       await sendPasswordResetEmail(auth, email.trim());
-      Alert.alert(
-        'E-mail enviado', 
-        'Um link para redefinição de senha foi enviado para o endereço informado. Verifique também sua caixa de spam.'
-      );
+      Alert.alert(t.titReset, t.msgReset);
     } catch (error: any) {
       console.log(error);
-      Alert.alert(
-        'Erro', 
-        'Não foi possível enviar o e-mail de redefinição. Verifique se o endereço está correto.'
-      );
+      Alert.alert(idioma === 'pt' ? 'Erro' : 'Error', t.errReset);
     }
   };
 
-  // LOGIN GOOGLE
   const handleGoogleLogin = async () => {
-
     try {
-
       setGoogleLoading(true);
-
       await GoogleSignin.hasPlayServices();
-
       const userInfo = await GoogleSignin.signIn();
-
       const idToken = userInfo.data?.idToken;
 
       if (!idToken) {
-        Alert.alert(
-          'Erro',
-          'Token Google não encontrado.'
-        );
+        Alert.alert(idioma === 'pt' ? 'Erro' : 'Error', t.errGoogleToken);
         return;
       }
 
-      const googleCredential =
-        GoogleAuthProvider.credential(idToken);
-
-      await signInWithCredential(
-        auth,
-        googleCredential
-      );
-
+      const googleCredential = GoogleAuthProvider.credential(idToken);
+      await signInWithCredential(auth, googleCredential);
       router.replace('/(tabs)');
 
     } catch (error: any) {
-
-      if (
-        error.code ===
-        statusCodes.SIGN_IN_CANCELLED
-      ) {
-
+      if (error.code === statusCodes.SIGN_IN_CANCELLED) {
         console.log('Login cancelado');
-
       } else {
-
         console.log(error);
-
-        Alert.alert(
-          'Erro',
-          'Não foi possível entrar com Google.'
-        );
+        Alert.alert(idioma === 'pt' ? 'Erro' : 'Error', t.errGoogleGeral);
       }
-
     } finally {
-
       setGoogleLoading(false);
     }
   };
 
   return (
     <KeyboardAvoidingView
-      behavior={
-        Platform.OS === 'ios'
-          ? 'padding'
-          : 'height'
-      }
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
     >
-      <View style={styles.inner}>
+      {/* SELETOR DE IDIOMA MINIMALISTA */}
+      <View style={styles.languageContainer}>
+        <TouchableOpacity style={styles.languageButton} onPress={alternarIdioma}>
+          <Text style={styles.languageText}>{t.seletor}</Text>
+        </TouchableOpacity>
+      </View>
 
+      <View style={styles.inner}>
         {/* HEADER */}
         <View style={styles.header}>
-
           <Image
             source={require('../../assets/images/icon2.png')}
             style={styles.logo}
           />
-
-          <Text style={styles.title}>
-            Zella
-          </Text>
-
-          <Text style={styles.subtitle}>
-            Seu espaço seguro
-          </Text>
-
+          <Text style={styles.title}>Zella</Text>
+          <Text style={styles.subtitle}>{t.subtitulo}</Text>
         </View>
 
         {/* FORM */}
         <View style={styles.form}>
-
           {/* EMAIL */}
           <View style={styles.inputWrapper}>
-
-            <Ionicons
-              name="mail-outline"
-              size={20}
-              color={Colors.primary}
-            />
-
+            <Ionicons name="mail-outline" size={20} color={Colors.primary} />
             <TextInput
               style={styles.input}
               placeholder="E-mail"
@@ -223,147 +230,78 @@ export default function LoginScreen() {
               autoCapitalize="none"
               keyboardType="email-address"
             />
-
           </View>
 
           {/* SENHA */}
           <View style={styles.inputWrapper}>
-
-            <Ionicons
-              name="lock-closed-outline"
-              size={20}
-              color={Colors.primary}
-            />
-
+            <Ionicons name="lock-closed-outline" size={20} color={Colors.primary} />
             <TextInput
               style={styles.input}
-              placeholder="Senha"
+              placeholder={idioma === 'pt' ? "Senha" : "Password"}
               placeholderTextColor="#999"
               value={senha}
               onChangeText={setSenha}
               secureTextEntry={!showSenha}
               autoCapitalize="none"
             />
-
-            <TouchableOpacity
-              onPress={() =>
-                setShowSenha(!showSenha)
-              }
-              style={styles.eyeButton}
-            >
+            <TouchableOpacity onPress={() => setShowSenha(!showSenha)} style={styles.eyeButton}>
               <Ionicons
-                name={
-                  showSenha
-                    ? 'eye-off-outline'
-                    : 'eye-outline'
-                }
+                name={showSenha ? 'eye-off-outline' : 'eye-outline'}
                 size={22}
                 color="#888"
               />
             </TouchableOpacity>
-
           </View>
 
           {/* BOTÃO ESQUECEU A SENHA */}
-          <TouchableOpacity 
-            onPress={handleEsqueceuSenha} 
-            style={styles.forgotContainer}
-          >
-            <Text style={styles.forgotText}>Esqueceu a senha?</Text>
+          <TouchableOpacity onPress={handleEsqueceuSenha} style={styles.forgotContainer}>
+            <Text style={styles.forgotText}>{t.esqueceuSenha}</Text>
           </TouchableOpacity>
 
           {/* LOGIN */}
           <TouchableOpacity
             style={styles.button}
             onPress={handleLogin}
-            disabled={
-              loading || googleLoading
-            }
+            disabled={loading || googleLoading}
           >
-
             {loading ? (
               <ActivityIndicator color="#FFF" />
             ) : (
-              <Text style={styles.buttonText}>
-                ENTRAR
-              </Text>
+              <Text style={styles.buttonText}>{t.btnEntrar}</Text>
             )}
-
           </TouchableOpacity>
 
           {/* DIVISOR */}
           <View style={styles.dividerRow}>
-
             <View style={styles.dividerLine} />
-
-            <Text style={styles.dividerText}>
-              ou
-            </Text>
-
+            <Text style={styles.dividerText}>{t.divisor}</Text>
             <View style={styles.dividerLine} />
-
           </View>
 
           {/* GOOGLE */}
           <TouchableOpacity
             style={styles.googleButton}
             onPress={handleGoogleLogin}
-            disabled={
-              loading || googleLoading
-            }
+            disabled={loading || googleLoading}
           >
-
             {googleLoading ? (
               <ActivityIndicator color="#FFF" />
             ) : (
-              <View
-                style={
-                  styles.googleButtonContent
-                }
-              >
-
-                <Ionicons
-                  name="logo-google"
-                  size={20}
-                  color="#FFF"
-                />
-
-                <Text
-                  style={
-                    styles.googleButtonText
-                  }
-                >
-                  Entrar com Google
-                </Text>
-
+              <View style={styles.googleButtonContent}>
+                <Ionicons name="logo-google" size={20} color="#FFF" />
+                <Text style={styles.googleButtonText}>{t.btnGoogle}</Text>
               </View>
             )}
-
           </TouchableOpacity>
-
         </View>
 
         {/* FOOTER */}
         <View style={styles.footerRow}>
-
-          <Text style={styles.footerText}>
-            Não tem conta?
-          </Text>
-
-          <TouchableOpacity
-            onPress={() =>
-              router.push('/auth/signup')
-            }
-          >
-
-            <Text style={styles.link}>
-              {' '}Cadastre-se
-            </Text>
-
+          <Text style={styles.footerText}>{t.semConta} </Text>
+          <TouchableOpacity onPress={() => router.push('/auth/signup')}>
+            <Text style={styles.link}>{t.cadastrese}</Text>
           </TouchableOpacity>
-
         </View>
-
       </View>
     </KeyboardAvoidingView>
   );
@@ -373,6 +311,25 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FDFBF9',
+  },
+  languageContainer: {
+    position: 'absolute',
+    top: 55,
+    right: 25,
+    zIndex: 10,
+  },
+  languageButton: {
+    backgroundColor: '#FFF',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#EFEFEF',
+  },
+  languageText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#3D1F2B',
   },
   inner: {
     flex: 1,
@@ -463,10 +420,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 3,
     elevation: 3,

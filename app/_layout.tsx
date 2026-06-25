@@ -5,23 +5,26 @@ import { useEffect, useRef } from 'react';
 import { Alert, Linking, Vibration } from 'react-native';
 import 'react-native-reanimated';
 
-import { db, auth } from '../config/firebase';
+import { auth, db } from '../config/firebase';
+
+// Altere a linha 12 para buscar pela raiz do projeto usando o '@'
+//import '@/config/i18n';
 
 import {
+  addDoc,
+  collection,
   doc,
   getDoc,
-  setDoc,
-  collection,
-  addDoc,
   serverTimestamp,
+  setDoc,
 } from 'firebase/firestore';
 
 import * as Location from 'expo-location';
 
 import { VolumeManager } from 'react-native-volume-manager';
 
-import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
+import * as Notifications from 'expo-notifications';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
