@@ -1,20 +1,18 @@
-const axios = require('axios');
-const { initializeApp, cert } = require('firebase-admin/app');
-const { getFirestore, FieldValue } = require('firebase-admin/firestore');
-// Importa o SDK oficial do Gemini
-const { GoogleGenAI } = require('@google/genai');
+import axios from 'axios';
+import { initializeApp, cert } from 'firebase-admin/app';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { GoogleGenAI } from '@google/genai';
+import { createRequire } from 'module';
 
-const serviceAccount = require("./chave-firebase.json");
+// Permite ler arquivos JSON nativamente no formato moderno (ES Modules)
+const requireJSON = createRequire(import.meta.url);
+const serviceAccount = requireJSON("./chave-firebase.json");
 
 initializeApp({
   credential: cert(serviceAccount)
 });
 
 const db = getFirestore();
-
-// CHAVES DAS APIs
-//const GNEWS_API_KEY = "97aeceb2ff00a131c6e6b7223277ba71"; 
-//const GEMINI_API_KEY = "AQ.Ab8RN6LIDtxvYFfv563NjRJp2-2GUv_o0tySviYj_1Tohby33A"; 
 
 const GNEWS_API_KEY = process.env.GNEWS_API_KEY; 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
@@ -25,7 +23,8 @@ const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 async function rodarAgente() {
   try {
     console.log("🤖 Buscando notícias reais nos portais parceiros...");
-const urlNoticias = `https://gnews.io/api/v4/search?q="empoderamento feminino" OR "saúde mental da mulher" OR "relacionamentos saudáveis" OR "autoestima feminina"&lang=pt&country=br&max=3&apikey=${GNEWS_API_KEY}`;    const response = await axios.get(urlNoticias);
+    const urlNoticias = `https://gnews.io/api/v4/search?q="empoderamento feminino" OR "saúde mental da mulher" OR "relacionamentos saudáveis" OR "autoestima feminina"&lang=pt&country=br&max=3&apikey=${GNEWS_API_KEY}`;    
+    const response = await axios.get(urlNoticias);
     const artigos = response.data.articles;
 
     if (!artigos || artigos.length === 0) {
