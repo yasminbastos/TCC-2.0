@@ -22,15 +22,9 @@ jobs:
       - name: Instalar Dependências
         run: npm install
 
-      - name: Criar arquivo de credenciais do Firebase
-        run: |
-          node -e "fs.writeFileSync('chave-firebase.json', process.env.FIREBASE_KEY)"
-        env:
-          FIREBASE_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-
       - name: Executar o Agente IA
         env:
           GNEWS_API_KEY: ${{ secrets.GNEWS_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          FIREBASE_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}   # <-- ESSA LINHA SALVA O DIA!
+          FIREBASE_SERVICE_ACCOUNT_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: node agente.js
