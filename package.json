@@ -1,6 +1,7 @@
 {
   "name": "zella-backend",
   "version": "1.0.0",
+  "type": "module",
   "description": "Backend do agente de IA do Zella",
   "main": "agente.js",
   "scripts": {
