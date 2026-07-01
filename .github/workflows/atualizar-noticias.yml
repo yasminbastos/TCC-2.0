@@ -32,4 +32,5 @@ jobs:
         env:
           GNEWS_API_KEY: ${{ secrets.GNEWS_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          FIREBASE_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}   # <-- ESSA LINHA SALVA O DIA!
         run: node agente.js
