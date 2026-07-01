@@ -11,23 +11,25 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Baixar o código do repositório
-      uses: actions/checkout@v4
+      - name: Baixar o código do repositório
+        uses: actions/checkout@v4
 
-    - name: Configurar o Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '18'
+      - name: Configurar o Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
 
-    - name: Instalar Dependências
-      run: npm install
+      - name: Instalar Dependências
+        run: npm install
 
-    - name: Criar arquivo de credenciais do Firebase
-      run: |
-       echo "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}" | jq -c . > chave-firebase.json
+      - name: Criar arquivo de credenciais do Firebase
+        run: |
+          node -e "fs.writeFileSync('chave-firebase.json', process.env.FIREBASE_KEY)"
+        env:
+          FIREBASE_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
 
-    - name: Executar o Agente IA
-      env:
-        GNEWS_API_KEY: ${{ secrets.GNEWS_API_KEY }}
-        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-      run: node agente.js
+      - name: Executar o Agente IA
+        env:
+          GNEWS_API_KEY: ${{ secrets.GNEWS_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: node agente.js
