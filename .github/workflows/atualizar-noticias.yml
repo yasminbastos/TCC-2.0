@@ -1,0 +1,33 @@
+name: Rodar Agente de Notícias Zella
+
+on:
+  schedule:
+    # Roda todos os dias às 09:00 UTC (6:00 da manhã no horário de Brasília)
+    - cron: '0 9 * * *'
+  workflow_dispatch: # Abre um botão no GitHub para você rodar manualmente quando quiser!
+
+jobs:
+  atualizar-noticias:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Baixar o código do repositório
+      uses: actions/checkout@v4
+
+    - name: Configurar o Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+
+    - name: Instalar Dependências
+      run: npm install
+
+    - name: Criar arquivo de credenciais do Firebase
+      run: |
+        echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > chave-firebase.json
+
+    - name: Executar o Agente IA
+      env:
+        GNEWS_API_KEY: ${{ secrets.GNEWS_API_KEY }}
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      run: node agente.js
