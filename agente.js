@@ -21,10 +21,12 @@ const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 async function rodarAgente() {
   try {
     console.log("🤖 Buscando notícias reais nos portais parceiros...");
-    const urlNoticias = `https://gnews.io/api/v4/search?q="empoderamento feminino" OR "saúde mental da mulher" OR "relacionamentos saudáveis" OR "autoestima feminina"&lang=pt&country=br&max=3&apikey=${GNEWS_API_KEY}`;    
+    const termoBusca = encodeURIComponent('"empoderamento feminino" OR "saúde mental" OR "autoestima"');
+    const urlNoticias = `https://gnews.io/api/v4/search?q=${termoBusca}&lang=pt&country=br&max=3&apikey=${GNEWS_API_KEY}`;    
+    
     const response = await axios.get(urlNoticias);
     const artigos = response.data.articles;
-
+    
     if (!artigos || artigos.length === 0) {
       console.log("💤 Nenhuma notícia nova encontrada.");
       return;
