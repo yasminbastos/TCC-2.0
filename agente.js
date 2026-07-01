@@ -1,8 +1,11 @@
-import axios from 'axios';
-import { initializeApp, cert } from 'firebase-admin/app';
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { GoogleGenAI } from '@google/genai';
+import axios from 'axios';
+import { cert, initializeApp } from 'firebase-admin/app';
+import { FieldValue, getFirestore } from 'firebase-admin/firestore';
 import { createRequire } from 'module';
+
+console.log("CONTEÚDO DA CHAVE RECEBIDA:", process.env.FIREBASE_KEY ? "Existe algo" : "Está vazia");
+console.log("TAMANHO DO TEXTO:", process.env.FIREBASE_KEY ? process.env.FIREBASE_KEY.length : 0);
 
 // Permite ler arquivos JSON nativamente no formato moderno (ES Modules)
 const requireJSON = createRequire(import.meta.url);
