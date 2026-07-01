@@ -1,4 +1,4 @@
-import { auth } from '@/config/firebase';
+import { auth, db } from '@/config/firebase';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import {
@@ -28,6 +28,7 @@ import {
   statusCodes,
 } from '@react-native-google-signin/google-signin';
 
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '../../constants/theme';
 
@@ -178,7 +179,25 @@ export default function LoginScreen() {
       }
 
       const googleCredential = GoogleAuthProvider.credential(idToken);
-      await signInWithCredential(auth, googleCredential);
+      const userCredential = await signInWithCredential(auth, googleCredential);
+      const user = userCredential.user;
+
+      // 🌐 VERIFICA E CRIA O DOCUMENTO DO USUÁRIO NO FIRESTORE SE FOR NOVO
+      if (user) {
+        const userRef = doc(db, 'usuarios', user.uid);
+        const userDoc = await getDoc(userRef);
+
+        if (!userDoc.exists()) {
+          await setDoc(userRef, {
+            uid: user.uid,
+            nome: user.displayName || 'Usuária Zella',
+            email: user.email?.toLowerCase() || '',
+            contatosEmergencia: []
+          });
+          console.log('✅ Documento Firestore criado com sucesso para o login Google!');
+        }
+      }
+
       router.replace('/(tabs)');
 
     } catch (error: any) {

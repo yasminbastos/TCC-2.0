@@ -7,9 +7,6 @@ import 'react-native-reanimated';
 
 import { auth, db } from '../config/firebase';
 
-// Altere a linha 12 para buscar pela raiz do projeto usando o '@'
-//import '@/config/i18n';
-
 import {
   addDoc,
   collection,
@@ -20,12 +17,9 @@ import {
 } from 'firebase/firestore';
 
 import * as Location from 'expo-location';
-
 import { VolumeManager } from 'react-native-volume-manager';
-
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
-
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 Notifications.setNotificationHandler({
@@ -39,321 +33,225 @@ Notifications.setNotificationHandler({
 });
 
 export default function RootLayout() {
-
   const colorScheme = useColorScheme();
-
   const cliquesRef = useRef(0);
-
   const timerRef = useRef<any>(null);
-
-  // 🚨 EVITA SOS DUPLICADO
   const executandoSOSRef = useRef(false);
 
-  async function registerForPushNotificationsAsync() {
-
+  // 📝 REGISTRO DO TOKEN (Sincronizado com o projectId do app.json)
+  async function registerForPushNotificationsAsync(userUid: string, userEmail: string | null) {
     if (!Device.isDevice) {
-      console.log('Push só funciona em celular físico.');
+      console.log('📌 Push só funciona em celular físico (Emulador/Simulador não gera token).');
       return;
     }
 
     try {
-
-      const { status: existingStatus } =
-        await Notifications.getPermissionsAsync();
-
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
       let finalStatus = existingStatus;
 
       if (existingStatus !== 'granted') {
-
-        const { status } =
-          await Notifications.requestPermissionsAsync();
-
+        const { status } = await Notifications.requestPermissionsAsync();
         finalStatus = status;
       }
 
       if (finalStatus !== 'granted') {
-        console.log('Permissão negada.');
+        console.log('❌ Permissão de notificação negada pelo usuário.');
         return;
       }
 
-      const tokenResponse =
-        await Notifications.getExpoPushTokenAsync({
-          projectId: '6f73f0fa-6ef9-4f14-960e-afbcc59bbf0b',
-        });
+      // ✅ PROJECT ID CORRIGIDO PARA COMBINAR COM O APP.JSON
+      const tokenResponse = await Notifications.getExpoPushTokenAsync({
+        projectId: '248a4f18-a586-41c6-98ef-9d781ece3dbb',
+      });
 
       const token = tokenResponse.data;
+      console.log('✅ TOKEN GERADO:', token);
 
-      console.log('✅ TOKEN:', token);
-
-      if (auth.currentUser) {
-
+      if (userUid) {
         await setDoc(
-          doc(db, 'users', auth.currentUser.uid),
+          doc(db, 'usuarios', userUid),
           {
             pushToken: token,
-            email: auth.currentUser.email,
-            uid: auth.currentUser.uid,
+            email: userEmail,
+            uid: userUid,
           },
           { merge: true }
         );
-
-        console.log('✅ Token salvo');
+        console.log('✅ Token salvo com sucesso no Firestore em "usuarios" para o UID:', userUid);
       }
-
     } catch (e) {
-      console.log('❌ Erro token:', e);
+      console.log('❌ Erro ao gerar ou salvar o token:', e);
     }
   }
 
   // 🚨 FUNÇÃO SOS
   const dispararSOS = async () => {
-
-    // 🚫 EVITA DUPLICAR
-    if (executandoSOSRef.current) {
-      return;
-    }
+    if (executandoSOSRef.current) return;
 
     executandoSOSRef.current = true;
-
-    console.log('🚨 SOS');
-
+    console.log('🚨 SOS INICIADO');
     Vibration.vibrate([500, 200, 500]);
 
     try {
-
-      const { status } =
-        await Location.requestForegroundPermissionsAsync();
+      const { status } = await Location.requestForegroundPermissionsAsync();
 
       if (status !== 'granted') {
-
-        Alert.alert(
-          'Erro',
-          'Permita o GPS.'
-        );
-
+        Alert.alert('Erro', 'Permita o acesso ao GPS nas configurações do aparelho.');
         executandoSOSRef.current = false;
-
         return;
       }
 
-      // 🚀 GPS MAIS RÁPIDO
-      const location =
-        await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Low,
-        });
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
 
-      const { latitude, longitude } =
-        location.coords;
-
-      const mapaUrl =
-        `https://www.google.com/maps?q=${latitude},${longitude}`;
+      const { latitude, longitude } = location.coords;
+      
+      // 🗺️ LINK UNIVERSAL E OFICIAL DO GOOGLE MAPS (IDÊNTICO PARA TODAS AS FUNÇÕES)
+      const mapaUrl = `https://maps.google.com/?q=${latitude},${longitude}`;
 
       if (auth.currentUser) {
-
         try {
-
-          const userDoc = await getDoc(
-            doc(db, 'users', auth.currentUser.uid)
-          );
-
+          const userDoc = await getDoc(doc(db, 'usuarios', auth.currentUser.uid));
           const dadosUsuaria = userDoc.data();
+          const idsContatos = dadosUsuaria?.contatosEmergencia || [];
 
-          const idsContatos =
-            dadosUsuaria?.contatosEmergencia || [];
+          // 1. Salvando histórico com a URL correta
+          await addDoc(collection(db, 'sos_history'), {
+            userId: auth.currentUser.uid,
+            userName: dadosUsuaria?.nome || 'Usuária',
+            date: new Date().toLocaleString('pt-BR'),
+            timestamp: serverTimestamp(),
+            latitude,
+            longitude,
+            mapUrl: mapaUrl,
+          });
 
-          // ✅ SALVA HISTÓRICO
-          await addDoc(
-            collection(db, 'sos_history'),
-            {
-              userId: auth.currentUser.uid,
+          console.log('✅ Histórico salvo no Firestore');
 
-              userName:
-                dadosUsuaria?.nome || 'Usuária',
-
-              date:
-                new Date().toLocaleString('pt-BR'),
-
-              timestamp: serverTimestamp(),
-
-              latitude,
-              longitude,
-
-              mapUrl: mapaUrl,
-            }
-          );
-
-          console.log('✅ Histórico salvo');
-
-          // ✅ BUSCA TOKENS
           const tokensParaEnviar: string[] = [];
-
           for (const id of idsContatos) {
-
-            const contatoDoc =
-              await getDoc(
-                doc(db, 'users', id)
-              );
-
+            const contatoDoc = await getDoc(doc(db, 'usuarios', id));
             if (contatoDoc.exists()) {
-
-              const token =
-                contatoDoc.data()?.pushToken;
-
-              if (token) {
-                tokensParaEnviar.push(token);
-              }
+              const token = contatoDoc.data()?.pushToken;
+              if (token) tokensParaEnviar.push(token);
             }
           }
 
-          console.log(
-            '📨 Tokens:',
-            tokensParaEnviar.length
-          );
+          console.log('📨 Enviando para', tokensParaEnviar.length, 'contatos.');
 
-          // ✅ ENVIA PUSH
           if (tokensParaEnviar.length > 0) {
+            const messages = tokensParaEnviar.map((token) => ({
+              to: token,
+              sound: 'default',
+              title: '🚨 ALERTA DE EMERGÊNCIA - ZELLA',
+              body: `${dadosUsuaria?.nome || 'Sua amiga'} precisa de ajuda agora!`,
+              data: { latitude, longitude, mapUrl: mapaUrl }, // URL correta enviada nos metadados do Push
+              priority: 'high',
+            }));
 
-            const message =
-              tokensParaEnviar.map((token) => ({
-                to: token,
+            const response = await fetch('https://exp.host/--/api/v2/push/send', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+              },
+              body: JSON.stringify(messages),
+            });
 
-                sound: 'default',
-
-                title:
-                  '🚨 ALERTA DE EMERGÊNCIA - ZELLA',
-
-                body:
-                  `${dadosUsuaria?.nome || 'Sua amiga'} precisa de ajuda agora!`,
-
-                data: {
-                  latitude,
-                  longitude,
-                  mapaUrl,
-                },
-
-                priority: 'high',
-              }));
-
-            const response = await fetch(
-              'https://exp.host/--/api/v2/push/send',
-              {
-                method: 'POST',
-
-                headers: {
-                  'Content-Type': 'application/json',
-                  Accept: 'application/json',
-                },
-
-                body: JSON.stringify(message),
-              }
-            );
-
-            const resJson =
-              await response.json();
-
-            console.log('✅ PUSH:', resJson);
+            const resJson = await response.json();
+            console.log('✅ Resposta da API Expo:', resJson);
           }
-
         } catch (e) {
-          console.log('❌ Erro push:', e);
+          console.log('❌ Erro ao processar banco/notificações:', e);
         }
       }
 
-      // ✅ WHATSAPP
-      const msgWpp =
-        `🚨 *ZELLA SOS: PRECISO DE AJUDA!* \n\nMinha localização: ${mapaUrl}`;
-
-      const urlWpp =
-        `whatsapp://send?text=${encodeURIComponent(msgWpp)}`;
+      // 2. WhatsApp enviando rigorosamente o mesmo link universal
+      const msgWpp = `🚨 *ZELLA SOS: PRECISO DE AJUDA!* \n\nMinha localização: ${mapaUrl}`;
+      const urlWpp = `whatsapp://send?text=${encodeURIComponent(msgWpp)}`;
 
       Linking.openURL(urlWpp).catch(() => {
-
-        Linking.openURL(
-          `https://wa.me/?text=${encodeURIComponent(msgWpp)}`
-        );
+        Linking.openURL(`https://wa.me/?text=${encodeURIComponent(msgWpp)}`);
       });
 
     } catch (error) {
-
-      console.log('❌ Erro SOS:', error);
-
-      Alert.alert(
-        'Erro',
-        'Não foi possível enviar o SOS.'
-      );
+      console.log('❌ Erro geral no SOS:', error);
     }
 
-    // 🔓 LIBERA NOVAMENTE
     executandoSOSRef.current = false;
   };
 
   useEffect(() => {
+    const unsubscribeAuth = auth.onAuthStateChanged(async (user) => {
+      if (user) {
+        console.log('👤 Usuário logado:', user.uid);
+        
+        await registerForPushNotificationsAsync(user.uid, user.email);
 
-    registerForPushNotificationsAsync();
-
-    const subscription =
-      VolumeManager.addVolumeListener(() => {
-
-        cliquesRef.current += 1;
-
-        console.log(
-          '🔊 Cliques:',
-          cliquesRef.current
-        );
-
-        if (timerRef.current) {
-          clearTimeout(timerRef.current);
-        }
-
-        timerRef.current = setTimeout(() => {
-          cliquesRef.current = 0;
-        }, 2000);
-
-        if (cliquesRef.current >= 3) {
-
-          cliquesRef.current = 0;
-
-          if (timerRef.current) {
-            clearTimeout(timerRef.current);
+        // 🔄 AUTOMAÇÃO DE TESTE
+        try {
+          const userRef = doc(db, 'usuarios', user.uid);
+          const userDoc = await getDoc(userRef);
+          
+          if (userDoc.exists()) {
+            const dados = userDoc.data();
+            if (!dados.contatosEmergencia || dados.contatosEmergencia.length === 0) {
+              await setDoc(userRef, {
+                contatosEmergencia: [user.uid]
+              }, { merge: true });
+              console.log('✅ Automação: Campo contatosEmergencia preenchido para testes!');
+            }
           }
-
-          dispararSOS();
+        } catch (error) {
+          console.log('⚠️ Erro na automação dos contatos:', error);
         }
-      });
+
+      } else {
+        console.log('👤 Nenhum usuário logado.');
+      }
+    });
+
+    let subscription: any = null;
+
+    const timerInicializacao = setTimeout(() => {
+      try {
+        subscription = VolumeManager.addVolumeListener(() => {
+          cliquesRef.current += 1;
+          
+          if (timerRef.current) clearTimeout(timerRef.current);
+
+          timerRef.current = setTimeout(() => {
+            cliquesRef.current = 0;
+          }, 2000);
+
+          if (cliquesRef.current >= 2) {
+            cliquesRef.current = 0;
+            if (timerRef.current) clearTimeout(timerRef.current);
+            dispararSOS();
+          }
+        });
+      } catch (error) {
+        console.log('⚠️ Erro ao iniciar VolumeManager:', error);
+      }
+    }, 1500);
 
     return () => {
-
-      subscription.remove();
-
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-      }
+      unsubscribeAuth();
+      clearTimeout(timerInicializacao);
+      if (subscription?.remove) subscription.remove();
+      if (timerRef.current) clearTimeout(timerRef.current);
     };
-
   }, []);
 
   return (
-
-    <ThemeProvider
-      value={
-        colorScheme === 'dark'
-          ? DarkTheme
-          : DefaultTheme
-      }
-    >
-
-      <Stack
-        screenOptions={{
-          headerShown: false,
-        }}
-      >
+    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+      <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="auth/login" />
         <Stack.Screen name="auth/signup" />
       </Stack>
-
       <StatusBar style="auto" />
-
     </ThemeProvider>
   );
 }

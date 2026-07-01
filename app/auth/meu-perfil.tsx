@@ -18,7 +18,7 @@ import {
 import { auth, db } from "../../config/firebase";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-// Todos os avatares usando a mesma cor oficial do aplicativo (#9c3569)
+// Avatares personalizados
 const AVATARES = [
   { id: "person", icon: "person", color: "#9c3569" },
   { id: "happy", icon: "happy-outline", color: "#9c3569" },

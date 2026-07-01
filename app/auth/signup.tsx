@@ -138,7 +138,7 @@ export default function SignUpScreen() {
 
       await updateProfile(user, { displayName: nome });
 
-      await setDoc(doc(db, 'users', user.uid), {
+      await setDoc(doc(db, 'usuarios', user.uid), {
         uid: user.uid,
         nome: nome,
         email: email.toLowerCase().trim(),
