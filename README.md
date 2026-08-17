@@ -1,5 +1,5 @@
 <h1>Trabalho de Conclusão de Curso</h1>
-<h3>Aplicação Web para Segurança Feminina - Selene</h3>
+<h3>Aplicação Web para Segurança Feminina - Zella</h3>
 <h2>Participantes:</h2>
 Gabrielly Leite de Macedo - SP3115763 | (GabyyMacedo) <br>
 Maria Eduarda de Araujo Souza - SP3115895 | (mariaeduarda9999) <br>
