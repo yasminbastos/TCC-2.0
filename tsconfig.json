@@ -1,17 +1,26 @@
 {
-  "extends": "expo/tsconfig.base",
   "compilerOptions": {
-    "strict": true,
-    "paths": {
-      "@/*": [
-        "./*"
-      ]
-    }
+    "module": "commonjs",
+    "target": "es2021",
+    "outDir": "lib",
+    "strict": false,
+    "noImplicitReturns": false,
+    "noUnusedLocals": false,
+    "sourceMap": true
   },
+  "compileOnSave": true,
   "include": [
-    "**/*.ts",
-    "**/*.tsx",
-    ".expo/types/**/*.ts",
-    "expo-env.d.ts"
+    "index.ts",
+    "agente.ts",
+    "src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "lib",
+    "hooks",
+    "constants",
+    "config",
+    "app",
+    "components"
   ]
 }

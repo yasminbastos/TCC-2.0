@@ -1,4 +1,4 @@
-import { onRequest } from "firebase-functions/v2/https";
+import * as functions from "firebase-functions/v1";
 import * as admin from "firebase-admin";
 import axios from "axios";
 import OpenAI from "openai";
@@ -6,10 +6,10 @@ import OpenAI from "openai";
 admin.initializeApp();
 const db = admin.firestore();
 
-// Inicializa o ChatGPT com a chave segura do Firebase
+// Inicializa o ChatGPT com a chave segura
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-export const agenteNoticiasZella = onRequest({ secrets: ["OPENAI_API_KEY", "GNEWS_API_KEY"] }, async (req, res) => {
+export const agenteNoticiasZella = functions.https.onRequest(async (req, res) => {
   try {
     const urlNoticias = `https://gnews.io/api/v4/search?q=("direitos das mulheres" OR "Autoestima feminina" OR "Amor próprio" OR "lei maria da penha" OR "proteção à mulher" OR "combate à violência contra a mulher")&lang=pt&country=br&max=5&apikey=${process.env.GNEWS_API_KEY}`; 
     const response = await axios.get(urlNoticias);
