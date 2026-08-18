@@ -265,7 +265,7 @@ export default function RootLayout() {
               const dados = change.doc.data();
               
               // Se o SOS não foi disparado por este próprio usuário
-             // if (dados.userId !== user.uid) {
+              if (dados.userId !== user.uid) {
                 setAlertaAtivo(dados);
                 Vibration.vibrate([1000, 500, 1000, 500], true);
                 playSOSSound(); // toca o áudio
