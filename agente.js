@@ -3,6 +3,12 @@ const axios = require('axios');
 const admin = require('firebase-admin');
 const OpenAI = require('openai');
 
+if (!admin.apps.length) {
+  admin.initializeApp();
+}
+
+const db = admin.firestore();
+
 // Lendo a chave direto da memória do ambiente, sem criar nenhum arquivo .json!
 const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
 
