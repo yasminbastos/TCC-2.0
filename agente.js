@@ -1,8 +1,8 @@
 const { GoogleGenAI } = require('@google/genai');
 const admin = require('firebase-admin');
 const axios = require('axios');
-const OpenAI = require('openai');
 
+// Inicialização do Firebase Admin
 if (!admin.apps.length) {
   if (process.env.FIREBASE_SERVICE_ACCOUNT) {
     const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
@@ -18,12 +18,13 @@ const db = admin.firestore();
 
 async function rodarAgente() {
   try {
-    // Inicialização movida para dentro da função assíncrona
-    const apiKey = process.env.OPENAI_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      throw new Error("A variável OPENAI_API_KEY não foi encontrada no ambiente.");
+      throw new Error("A variável GEMINI_API_KEY não foi encontrada no ambiente.");
     }
-    const openai = new OpenAI({ apiKey });
+
+    // Inicialização da SDK oficial do Google Gemini
+    const ai = new GoogleGenAI({ apiKey });
 
     const urlNoticias = `https://gnews.io/api/v4/search?q=("direitos das mulheres" OR "Autoestima feminina" OR "Amor próprio" OR "lei maria da penha" OR "proteção à mulher" OR "combate à violência contra a mulher")&lang=pt&country=br&max=5&apikey=${process.env.GNEWS_API_KEY}`; 
     const response = await axios.get(urlNoticias);
@@ -63,15 +64,17 @@ async function rodarAgente() {
         }
       `;
 
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [{ role: "user", content: promptAgente }],
-        response_format: { type: "json_object" }
+      // Chamada para a API do Gemini
+      const aiResponse = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: promptAgente,
+        config: {
+          responseMimeType: 'application/json'
+        }
       });
 
-      const textoIA = completion.choices[0].message.content || "{}";
-      const respostaLimpa = textoIA.replace(/```json|```/g, '').trim();
-      const dadosTratadosIA = JSON.parse(respostaLimpa);
+      const textoIA = aiResponse.text || "{}";
+      const dadosTratadosIA = JSON.parse(textoIA);
 
       await docRef.set({
         title: artigo.title,
@@ -86,7 +89,7 @@ async function rodarAgente() {
       console.log(`Notícia salva: ${artigo.title}`);
     }
 
-    console.log("Agente Zella executado com sucesso!");
+    console.log("Agente Zella executado com sucesso usando Gemini!");
   } catch (error) {
     console.error("Erro no Agente Zella:", error);
     process.exit(1);
