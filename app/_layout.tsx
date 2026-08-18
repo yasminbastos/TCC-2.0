@@ -1,9 +1,10 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useRef } from 'react';
-import { Alert, Linking, Vibration } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Alert, Linking, Platform, Vibration } from 'react-native';
 import 'react-native-reanimated';
+import { playSOSSound, stopSOSSound } from './useSOSAlarm';
 
 import { auth, db } from '../config/firebase';
 
@@ -12,6 +13,10 @@ import {
   collection,
   doc,
   getDoc,
+  onSnapshot,
+  query,
+  orderBy,
+  limit,
   serverTimestamp,
   setDoc,
 } from 'firebase/firestore';
@@ -20,6 +25,7 @@ import * as Location from 'expo-location';
 import { VolumeManager } from 'react-native-volume-manager';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
+import Constants from 'expo-constants';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 Notifications.setNotificationHandler({
@@ -32,13 +38,27 @@ Notifications.setNotificationHandler({
   }),
 });
 
+async function setupEmergencyChannel() {
+  if (Platform.OS === 'android') {
+    await Notifications.setNotificationChannelAsync('sos-emergency-v2', {
+      name: 'Alerta de Emergência SOS',
+      importance: Notifications.AndroidImportance.MAX,
+      vibrationPattern: [0, 500, 250, 500, 250, 500],
+      sound: 'default',
+      enableVibrate: true,
+      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+      bypassDnd: true,
+    });
+  }
+}
+
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const cliquesRef = useRef(0);
   const timerRef = useRef<any>(null);
   const executandoSOSRef = useRef(false);
+  const [alertaAtivo, setAlertaAtivo] = useState<any>(null);
 
-  // 📝 REGISTRO DO TOKEN (Sincronizado com o projectId do app.json)
   async function registerForPushNotificationsAsync(userUid: string, userEmail: string | null) {
     if (!Device.isDevice) {
       console.log('📌 Push só funciona em celular físico (Emulador/Simulador não gera token).');
@@ -59,9 +79,13 @@ export default function RootLayout() {
         return;
       }
 
-      // ✅ PROJECT ID CORRIGIDO PARA COMBINAR COM O APP.JSON
+      const projectId =
+        Constants?.expoConfig?.extra?.eas?.projectId ?? 
+        Constants?.easConfig?.projectId ??
+        '248a4f18-a586-41c6-9d78-1ece3dbb';
+
       const tokenResponse = await Notifications.getExpoPushTokenAsync({
-        projectId: '248a4f18-a586-41c6-98ef-9d781ece3dbb',
+        projectId: projectId,
       });
 
       const token = tokenResponse.data;
@@ -84,7 +108,6 @@ export default function RootLayout() {
     }
   }
 
-  // 🚨 FUNÇÃO SOS
   const dispararSOS = async () => {
     if (executandoSOSRef.current) return;
 
@@ -106,8 +129,6 @@ export default function RootLayout() {
       });
 
       const { latitude, longitude } = location.coords;
-      
-      // 🗺️ LINK UNIVERSAL E OFICIAL DO GOOGLE MAPS (IDÊNTICO PARA TODAS AS FUNÇÕES)
       const mapaUrl = `https://maps.google.com/?q=${latitude},${longitude}`;
 
       if (auth.currentUser) {
@@ -116,7 +137,6 @@ export default function RootLayout() {
           const dadosUsuaria = userDoc.data();
           const idsContatos = dadosUsuaria?.contatosEmergencia || [];
 
-          // 1. Salvando histórico com a URL correta
           await addDoc(collection(db, 'sos_history'), {
             userId: auth.currentUser.uid,
             userName: dadosUsuaria?.nome || 'Usuária',
@@ -143,11 +163,12 @@ export default function RootLayout() {
           if (tokensParaEnviar.length > 0) {
             const messages = tokensParaEnviar.map((token) => ({
               to: token,
-              sound: 'default',
               title: '🚨 ALERTA DE EMERGÊNCIA - ZELLA',
               body: `${dadosUsuaria?.nome || 'Sua amiga'} precisa de ajuda agora!`,
-              data: { latitude, longitude, mapUrl: mapaUrl }, // URL correta enviada nos metadados do Push
+              data: { latitude, longitude, mapUrl: mapaUrl },
               priority: 'high',
+              channelId: 'sos-emergency-v2',
+              _displayInForeground: true,
             }));
 
             const response = await fetch('https://exp.host/--/api/v2/push/send', {
@@ -167,7 +188,6 @@ export default function RootLayout() {
         }
       }
 
-      // 2. WhatsApp enviando rigorosamente o mesmo link universal
       const msgWpp = `🚨 *ZELLA SOS: PRECISO DE AJUDA!* \n\nMinha localização: ${mapaUrl}`;
       const urlWpp = `whatsapp://send?text=${encodeURIComponent(msgWpp)}`;
 
@@ -182,30 +202,77 @@ export default function RootLayout() {
     executandoSOSRef.current = false;
   };
 
+  // 🚨 POPOP / ALERTA VISUAL COM SOM E VIBRAÇÃO CONTINUA
   useEffect(() => {
+    if (alertaAtivo) {
+      const linkDoMapa = alertaAtivo.mapUrl || `https://maps.google.com/?q=${alertaAtivo.latitude},${alertaAtivo.longitude}`;
+
+      Alert.alert(
+        "🚨 ALERTA DE SOS RECEBIDO!",
+        `${alertaAtivo.userName || 'Sua amiga'} precisa de ajuda agora!`,
+        [
+          { 
+            text: "Cancelar", 
+            style: "cancel",
+            onPress: () => {
+              stopSOSSound();
+              Vibration.cancel();
+              setAlertaAtivo(null);
+            } 
+          },
+          { 
+            text: "Abrir Mapa", 
+            onPress: () => {
+              stopSOSSound();
+              Vibration.cancel();
+              setAlertaAtivo(null);
+              Linking.openURL(linkDoMapa);
+            } 
+          }
+        ],
+        { cancelable: false }
+      );
+    }
+  }, [alertaAtivo]);
+
+  useEffect(() => {
+    setupEmergencyChannel();
+
+    let unsubscribeFirestore: () => void;
+
     const unsubscribeAuth = auth.onAuthStateChanged(async (user) => {
       if (user) {
         console.log('👤 Usuário logado:', user.uid);
         
         await registerForPushNotificationsAsync(user.uid, user.email);
 
-        // 🔄 AUTOMAÇÃO DE TESTE
-        try {
-          const userRef = doc(db, 'usuarios', user.uid);
-          const userDoc = await getDoc(userRef);
-          
-          if (userDoc.exists()) {
-            const dados = userDoc.data();
-            if (!dados.contatosEmergencia || dados.contatosEmergencia.length === 0) {
-              await setDoc(userRef, {
-                contatosEmergencia: [user.uid]
-              }, { merge: true });
-              console.log('✅ Automação: Campo contatosEmergencia preenchido para testes!');
-            }
+        // 🚨 ESCUTA O FIRESTORE PARA RECONHECER O SOS EM TEMPO REAL E TOCAR O ALARME
+        const q = query(
+          collection(db, 'sos_history'), //conversa com o banco de dados
+          orderBy('timestamp', 'desc'),
+          limit(1)
+        );
+
+        let cargaInicial = true;
+        unsubscribeFirestore = onSnapshot(q, (snapshot) => { //receber a notificação em tempo real
+          if (cargaInicial) {
+            cargaInicial = false;
+            return;
           }
-        } catch (error) {
-          console.log('⚠️ Erro na automação dos contatos:', error);
-        }
+
+          snapshot.docChanges().forEach((change) => {
+            if (change.type === 'added') {
+              const dados = change.doc.data();
+              
+              // Se o SOS não foi disparado por este próprio usuário
+             // if (dados.userId !== user.uid) {
+                setAlertaAtivo(dados);
+                Vibration.vibrate([1000, 500, 1000, 500], true);
+                playSOSSound(); // toca o áudio
+            //  }
+            }
+          });
+        });
 
       } else {
         console.log('👤 Nenhum usuário logado.');
@@ -238,6 +305,7 @@ export default function RootLayout() {
 
     return () => {
       unsubscribeAuth();
+      if (unsubscribeFirestore) unsubscribeFirestore();
       clearTimeout(timerInicializacao);
       if (subscription?.remove) subscription.remove();
       if (timerRef.current) clearTimeout(timerRef.current);

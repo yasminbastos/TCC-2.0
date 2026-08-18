@@ -9,7 +9,10 @@
     "userInterfaceStyle": "automatic",
     "owner": "maymay007",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "UIBackgroundModes": ["audio"]
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -17,7 +20,11 @@
         "backgroundColor": "#fcf0f6"
       },
       "package": "com.zella.app",
-      "googleServicesFile": "./google-services.json"
+      "googleServicesFile": "./google-services.json",
+      "permissions": [
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE"
+      ]
     },
     "web": {
       "output": "static",
@@ -29,7 +36,8 @@
         "expo-notifications",
         {
           "icon": "./assets/images/icon.png",
-          "color": "#fcf0f6"
+          "color": "#fcf0f6",
+          "sounds": []
         }
       ],
       [
@@ -39,6 +47,12 @@
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#fcf0f6"
+        }
+      ],
+      [
+        "expo-av",
+        {
+          "microphonePermission": false
         }
       ],
       "expo-web-browser",

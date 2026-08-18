@@ -3,7 +3,7 @@ import * as Linking from 'expo-linking';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { collection, doc, getDoc, limit, onSnapshot, orderBy, query, deleteDoc } from 'firebase/firestore';
 import React, { useCallback, useEffect, useState } from 'react';
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View, Alert } from 'react-native';
+import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View, Alert, Vibration } from 'react-native';
 import { auth, db } from '../../config/firebase';
 
 const womanPerfil = require('../../assets/images/woman.png');
@@ -94,6 +94,7 @@ const HomeScreen = () => {
             const contatosDoRemetente = remetenteDoc.data().contatosEmergencia || [];
             if (contatosDoRemetente.includes(user.uid)) {
               setAlertaAtivo({ id: snapshot.docs[0].id, ...dadosSOS });
+              Vibration.vibrate([1000, 500, 1000, 500, 1000], true);
               return;
             }
           }
@@ -109,6 +110,7 @@ const HomeScreen = () => {
 
   // Ação ao clicar no botão de notificação da Home
   const lidarCliqueNotificacao = async () => {
+    Vibration.cancel();
     if (alertaAtivo) {
       const linkDoMapa = alertaAtivo.mapUrl || `https://maps.google.com/?q=${alertaAtivo.latitude},${alertaAtivo.longitude}`;
 
@@ -277,7 +279,6 @@ const HomeScreen = () => {
         <View style={[styles.networkSectionHeader, { marginTop: 10 }]}>
           <Text style={styles.sectionTitle}>Informativos e Conscientização</Text>
           <TouchableOpacity onPress={() => router.push('/noticias' as any)}>
-            <Text style={styles.seeAllText}>Conheça mais</Text>
           </TouchableOpacity>
         </View>
 
@@ -348,7 +349,7 @@ const styles = StyleSheet.create({
   safetyTextContainer: { flex: 1, marginLeft: 15, zIndex: 2 },
   safetyTitle: { color: '#333', fontSize: 16, fontWeight: 'bold' },
   safetySubtitle: { color: '#555', fontSize: 12, marginTop: 2 },
-  cardIllustration: { width: 95, height: 100, position: 'absolute', right: 0, bottom: -10 },
+  cardIllustration: { width: 85, height: 100, position: 'absolute', right: 0, bottom: -10 },
   networkSectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   sectionTitle: { fontSize: 14, fontWeight: '700', color: '#5f162bff' },
   seeAllText: { fontSize: 12, color: '#5f162bff', fontWeight: '600' },
