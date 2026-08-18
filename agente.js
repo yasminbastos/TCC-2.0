@@ -2,15 +2,24 @@ const { GoogleGenAI } = require('@google/genai');
 const admin = require('firebase-admin');
 const axios = require('axios');
 
-// Inicialização do Firebase Admin
+// Inicialização segura do Firebase Admin
 if (!admin.apps.length) {
-  if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+  try {
+    const rawServiceAccount = process.env.FIREBASE_SERVICE_ACCOUNT;
+    
+    if (!rawServiceAccount) {
+      throw new Error("A variável FIREBASE_SERVICE_ACCOUNT não foi encontrada.");
+    }
+
+    const serviceAccount = JSON.parse(rawServiceAccount);
+    
     admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount)
+      credential: admin.credential.cert(serviceAccount),
+      projectId: serviceAccount.project_id // Força a definição do ID do Projeto
     });
-  } else {
-    admin.initializeApp();
+  } catch (err) {
+    console.error("Erro ao carregar as credenciais do Firebase:", err.message);
+    process.exit(1);
   }
 }
 
