@@ -1,12 +1,9 @@
-
 const { GoogleGenAI } = require('@google/genai');
 const admin = require('firebase-admin');
 const axios = require('axios');
 const OpenAI = require('openai');
 
-// Inicialização do Firebase Admin
 if (!admin.apps.length) {
-  // Se você usa a variável de ambiente com o JSON de credenciais:
   if (process.env.FIREBASE_SERVICE_ACCOUNT) {
     const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
     admin.initializeApp({
@@ -17,14 +14,17 @@ if (!admin.apps.length) {
   }
 }
 
-// Declaração ÚNICA do banco de dados
 const db = admin.firestore();
-
-// Inicialização da OpenAI
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 async function rodarAgente() {
   try {
+    // Inicialização movida para dentro da função assíncrona
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      throw new Error("A variável OPENAI_API_KEY não foi encontrada no ambiente.");
+    }
+    const openai = new OpenAI({ apiKey });
+
     const urlNoticias = `https://gnews.io/api/v4/search?q=("direitos das mulheres" OR "Autoestima feminina" OR "Amor próprio" OR "lei maria da penha" OR "proteção à mulher" OR "combate à violência contra a mulher")&lang=pt&country=br&max=5&apikey=${process.env.GNEWS_API_KEY}`; 
     const response = await axios.get(urlNoticias);
     const artigos = response.data.articles;
