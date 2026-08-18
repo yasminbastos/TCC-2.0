@@ -5,7 +5,7 @@ const axios = require('axios');
 // Inicialização segura do Firebase Admin
 if (!admin.apps.length) {
   try {
-    const rawServiceAccount = process.env.FIREBASE_SERVICE_ACCOUNT;
+    const rawServiceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
     
     if (!rawServiceAccount) {
       throw new Error("A variável FIREBASE_SERVICE_ACCOUNT não foi encontrada.");
