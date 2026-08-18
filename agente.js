@@ -1,7 +1,7 @@
 const { GoogleGenAI } = require('@google/genai');
-import axios from 'axios';
-import { cert, initializeApp } from 'firebase-admin/app';
-import { FieldValue, getFirestore } from 'firebase-admin/firestore';
+const axios = require('axios');
+const admin = require('firebase-admin');
+const OpenAI = require('openai');
 
 // Lendo a chave direto da memória do ambiente, sem criar nenhum arquivo .json!
 const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
