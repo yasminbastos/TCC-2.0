@@ -207,7 +207,7 @@ export default function RootLayout() {
     if (alertaAtivo) {
       const linkDoMapa = alertaAtivo.mapUrl || `https://maps.google.com/?q=${alertaAtivo.latitude},${alertaAtivo.longitude}`;
 
-      Alert.alert(
+      Alert.alert( 
         "🚨 ALERTA DE SOS RECEBIDO!",
         `${alertaAtivo.userName || 'Sua amiga'} precisa de ajuda agora!`,
         [
@@ -269,7 +269,7 @@ export default function RootLayout() {
                 setAlertaAtivo(dados);
                 Vibration.vibrate([1000, 500, 1000, 500], true);
                 playSOSSound(); // toca o áudio
-            //  }
+             }
             }
           });
         });
