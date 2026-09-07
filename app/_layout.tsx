@@ -1,32 +1,24 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useRef, useState } from 'react';
-import { Alert, Linking, Platform, Vibration } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { AppState } from 'react-native';
 import 'react-native-reanimated';
-import { playSOSSound, stopSOSSound } from './useSOSAlarm';
 
 import { auth, db } from '../config/firebase';
 
-import {
-  addDoc,
-  collection,
-  doc,
-  getDoc,
-  onSnapshot,
-  query,
-  orderBy,
-  limit,
-  serverTimestamp,
-  setDoc,
-} from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
 
-import * as Location from 'expo-location';
-import { VolumeManager } from 'react-native-volume-manager';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { setupEmergencyChannel } from '@/constants/sos-notifications';
+import {
+  isBackgroundSosEnabled,
+  startBackgroundSos,
+  syncBackgroundSosProfile,
+} from '@/services/background-sos-control';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -38,26 +30,29 @@ Notifications.setNotificationHandler({
   }),
 });
 
-async function setupEmergencyChannel() {
-  if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('sos-emergency-v2', {
-      name: 'Alerta de Emergência SOS',
-      importance: Notifications.AndroidImportance.MAX,
-      vibrationPattern: [0, 500, 250, 500, 250, 500],
-      sound: 'default',
-      enableVibrate: true,
-      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
-      bypassDnd: true,
-    });
-  }
+type SosNotificationData = {
+  type?: unknown;
+  senderName?: unknown;
+  latitude?: unknown;
+  longitude?: unknown;
+  mapUrl?: unknown;
+  testMode?: unknown;
+};
+
+function optionalString(value: unknown) {
+  return typeof value === 'string' ? value : '';
+}
+
+function optionalCoordinate(value: unknown) {
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  if (typeof value === 'string' && Number.isFinite(Number(value))) return value;
+  return '';
 }
 
 export default function RootLayout() {
+  const router = useRouter();
   const colorScheme = useColorScheme();
-  const cliquesRef = useRef(0);
-  const timerRef = useRef<any>(null);
-  const executandoSOSRef = useRef(false);
-  const [alertaAtivo, setAlertaAtivo] = useState<any>(null);
+  const respostasProcessadasRef = useRef(new Set<string>());
 
   async function registerForPushNotificationsAsync(userUid: string, userEmail: string | null) {
     if (!Device.isDevice) {
@@ -108,209 +103,81 @@ export default function RootLayout() {
     }
   }
 
-  const dispararSOS = async () => {
-    if (executandoSOSRef.current) return;
-
-    executandoSOSRef.current = true;
-    console.log('🚨 SOS INICIADO');
-    Vibration.vibrate([500, 200, 500]);
-
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-
-      if (status !== 'granted') {
-        Alert.alert('Erro', 'Permita o acesso ao GPS nas configurações do aparelho.');
-        executandoSOSRef.current = false;
-        return;
-      }
-
-      const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-
-      const { latitude, longitude } = location.coords;
-      const mapaUrl = `https://maps.google.com/?q=${latitude},${longitude}`;
-
-      if (auth.currentUser) {
-        try {
-          const userDoc = await getDoc(doc(db, 'usuarios', auth.currentUser.uid));
-          const dadosUsuaria = userDoc.data();
-          const idsContatos = dadosUsuaria?.contatosEmergencia || [];
-
-          await addDoc(collection(db, 'sos_history'), {
-            userId: auth.currentUser.uid,
-            userName: dadosUsuaria?.nome || 'Usuária',
-            date: new Date().toLocaleString('pt-BR'),
-            timestamp: serverTimestamp(),
-            latitude,
-            longitude,
-            mapUrl: mapaUrl,
-          });
-
-          console.log('✅ Histórico salvo no Firestore');
-
-          const tokensParaEnviar: string[] = [];
-          for (const id of idsContatos) {
-            const contatoDoc = await getDoc(doc(db, 'usuarios', id));
-            if (contatoDoc.exists()) {
-              const token = contatoDoc.data()?.pushToken;
-              if (token) tokensParaEnviar.push(token);
-            }
-          }
-
-          console.log('📨 Enviando para', tokensParaEnviar.length, 'contatos.');
-
-          if (tokensParaEnviar.length > 0) {
-            const messages = tokensParaEnviar.map((token) => ({
-              to: token,
-              title: '🚨 ALERTA DE EMERGÊNCIA - ZELLA',
-              body: `${dadosUsuaria?.nome || 'Sua amiga'} precisa de ajuda agora!`,
-              data: { latitude, longitude, mapUrl: mapaUrl },
-              priority: 'high',
-              channelId: 'sos-emergency-v2',
-              _displayInForeground: true,
-            }));
-
-            const response = await fetch('https://exp.host/--/api/v2/push/send', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                Accept: 'application/json',
-              },
-              body: JSON.stringify(messages),
-            });
-
-            const resJson = await response.json();
-            console.log('✅ Resposta da API Expo:', resJson);
-          }
-        } catch (e) {
-          console.log('❌ Erro ao processar banco/notificações:', e);
-        }
-      }
-
-      const msgWpp = `🚨 *ZELLA SOS: PRECISO DE AJUDA!* \n\nMinha localização: ${mapaUrl}`;
-      const urlWpp = `whatsapp://send?text=${encodeURIComponent(msgWpp)}`;
-
-      Linking.openURL(urlWpp).catch(() => {
-        Linking.openURL(`https://wa.me/?text=${encodeURIComponent(msgWpp)}`);
-      });
-
-    } catch (error) {
-      console.log('❌ Erro geral no SOS:', error);
-    }
-
-    executandoSOSRef.current = false;
-  };
-
-  // 🚨 POPOP / ALERTA VISUAL COM SOM E VIBRAÇÃO CONTINUA
   useEffect(() => {
-    if (alertaAtivo) {
-      const linkDoMapa = alertaAtivo.mapUrl || `https://maps.google.com/?q=${alertaAtivo.latitude},${alertaAtivo.longitude}`;
-
-      Alert.alert( 
-        "🚨 ALERTA DE SOS RECEBIDO!",
-        `${alertaAtivo.userName || 'Sua amiga'} precisa de ajuda agora!`,
-        [
-          { 
-            text: "Cancelar", 
-            style: "cancel",
-            onPress: () => {
-              stopSOSSound();
-              Vibration.cancel();
-              setAlertaAtivo(null);
-            } 
-          },
-          { 
-            text: "Abrir Mapa", 
-            onPress: () => {
-              stopSOSSound();
-              Vibration.cancel();
-              setAlertaAtivo(null);
-              Linking.openURL(linkDoMapa);
-            } 
-          }
-        ],
-        { cancelable: false }
+    const configurarCanalEmergencia = () => {
+      setupEmergencyChannel().catch((error) =>
+        console.log('Erro ao configurar o canal SOS:', error)
       );
-    }
-  }, [alertaAtivo]);
+    };
 
-  useEffect(() => {
-    setupEmergencyChannel();
+    configurarCanalEmergencia();
 
-    let unsubscribeFirestore: () => void;
+    const appStateSubscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active') configurarCanalEmergencia();
+    });
+
+    const abrirNotificacaoSos = (request: Notifications.NotificationRequest) => {
+      const responseKey = request.identifier;
+
+      if (respostasProcessadasRef.current.has(responseKey)) return;
+
+      const data = request.content.data as SosNotificationData;
+      if (data?.type !== 'SOS') return;
+
+      respostasProcessadasRef.current.add(responseKey);
+      router.push({
+        pathname: '/sos-recebido',
+        params: {
+          senderName: optionalString(data.senderName) || 'Contato de confiança',
+          latitude: optionalCoordinate(data.latitude),
+          longitude: optionalCoordinate(data.longitude),
+          mapUrl: optionalString(data.mapUrl),
+          testMode: data.testMode === true ? 'true' : '',
+        },
+      });
+    };
+
+    const notificationReceivedSubscription =
+      Notifications.addNotificationReceivedListener((notification) => {
+        abrirNotificacaoSos(notification.request);
+      });
+
+    const notificationResponseSubscription =
+      Notifications.addNotificationResponseReceivedListener((response) => {
+        abrirNotificacaoSos(response.notification.request);
+      });
+
+    // O toque pode ter iniciado o processo antes de o listener JavaScript existir.
+    Notifications.getLastNotificationResponseAsync()
+      .then((response) => {
+        if (response) abrirNotificacaoSos(response.notification.request);
+      })
+      .catch((error) => console.log('Erro ao ler a notificação inicial:', error))
+      .finally(() => Notifications.clearLastNotificationResponseAsync());
 
     const unsubscribeAuth = auth.onAuthStateChanged(async (user) => {
       if (user) {
         console.log('👤 Usuário logado:', user.uid);
         
         await registerForPushNotificationsAsync(user.uid, user.email);
-
-        // 🚨 ESCUTA O FIRESTORE PARA RECONHECER O SOS EM TEMPO REAL E TOCAR O ALARME
-        const q = query(
-          collection(db, 'sos_history'), //conversa com o banco de dados
-          orderBy('timestamp', 'desc'),
-          limit(1)
-        );
-
-        let cargaInicial = true;
-        unsubscribeFirestore = onSnapshot(q, (snapshot) => { //receber a notificação em tempo real
-          if (cargaInicial) {
-            cargaInicial = false;
-            return;
-          }
-
-          snapshot.docChanges().forEach((change) => {
-            if (change.type === 'added') {
-              const dados = change.doc.data();
-              
-              // Se o SOS não foi disparado por este próprio usuário
-              if (dados.userId !== user.uid) {
-                setAlertaAtivo(dados);
-                Vibration.vibrate([1000, 500, 1000, 500], true);
-                playSOSSound(); // toca o áudio
-             }
-            }
-          });
-        });
-
+        try {
+          await syncBackgroundSosProfile();
+          if (await isBackgroundSosEnabled()) await startBackgroundSos();
+        } catch (error) {
+          console.log('Erro ao preparar o SOS em segundo plano:', error);
+        }
       } else {
         console.log('👤 Nenhum usuário logado.');
       }
     });
 
-    let subscription: any = null;
-
-    const timerInicializacao = setTimeout(() => {
-      try {
-        subscription = VolumeManager.addVolumeListener(() => {
-          cliquesRef.current += 1;
-          
-          if (timerRef.current) clearTimeout(timerRef.current);
-
-          timerRef.current = setTimeout(() => {
-            cliquesRef.current = 0;
-          }, 2000);
-
-          if (cliquesRef.current >= 2) {
-            cliquesRef.current = 0;
-            if (timerRef.current) clearTimeout(timerRef.current);
-            dispararSOS();
-          }
-        });
-      } catch (error) {
-        console.log('⚠️ Erro ao iniciar VolumeManager:', error);
-      }
-    }, 1500);
-
     return () => {
       unsubscribeAuth();
-      if (unsubscribeFirestore) unsubscribeFirestore();
-      clearTimeout(timerInicializacao);
-      if (subscription?.remove) subscription.remove();
-      if (timerRef.current) clearTimeout(timerRef.current);
+      appStateSubscription.remove();
+      notificationReceivedSubscription.remove();
+      notificationResponseSubscription.remove();
     };
-  }, []);
+  }, [router]);
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
@@ -318,6 +185,7 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="auth/login" />
         <Stack.Screen name="auth/signup" />
+        <Stack.Screen name="sos-recebido" />
       </Stack>
       <StatusBar style="auto" />
     </ThemeProvider>

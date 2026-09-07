@@ -1,3 +1,4 @@
+import { useIsFocused } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { onAuthStateChanged } from 'firebase/auth';
 import React, { useEffect, useRef, useState } from 'react';
@@ -13,6 +14,7 @@ import { auth } from '../config/firebase';
 
 export default function Index() {
   const router = useRouter();
+  const isFocused = useIsFocused();
 
   const [loading, setLoading] = useState(true);
   const [ondeNavegar, setOndeNavegar] = useState<string | null>(null);
@@ -135,10 +137,12 @@ export default function Index() {
   }, []);
 
   useEffect(() => {
-    if (!loading && ondeNavegar) {
+    // Uma notificação pode abrir outra rota durante a splash no cold start.
+    // Nesse caso, não substitua a tela que está visível quando o timer terminar.
+    if (isFocused && !loading && ondeNavegar) {
       router.replace(ondeNavegar as any);
     }
-  }, [loading, ondeNavegar]);
+  }, [isFocused, loading, ondeNavegar, router]);
 
   // Interpolações da Onda 1
   const waveScale1 = waveAnim1.interpolate({ inputRange: [0, 1], outputRange: [0.95, 2.8] });

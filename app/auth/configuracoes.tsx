@@ -1,10 +1,15 @@
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage"; // Importação do armazenamento local
 import { useRouter } from "expo-router";
+import * as Location from "expo-location";
+import * as Notifications from "expo-notifications";
 import { sendPasswordResetEmail } from "firebase/auth";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
     Alert,
+    AppState,
+    Linking,
+    Platform,
     ScrollView,
     StyleSheet,
     Switch,
@@ -13,6 +18,20 @@ import {
     View,
 } from "react-native";
 import { auth } from "../../config/firebase";
+import {
+  canUseFullScreenSosAlert,
+  isBackgroundSosEnabled,
+  openFullScreenSosSettings,
+  startBackgroundSos,
+  stopBackgroundSos,
+  syncBackgroundSosProfile,
+} from "../../services/background-sos-control";
+import {
+  cancelLocalSosTest,
+  getPendingLocalSosTestId,
+  LocalSosTestError,
+  scheduleLocalSosTest,
+} from "../../utils/local-sos-notification-test";
 
 const textos = {
   pt: {
@@ -24,6 +43,8 @@ const textos = {
     idiomaApp: "Idioma do App",
     preferencias: "Preferências",
     notificacoes: "Notificações Push",
+    naoPerturbe: "Alertas no Não Perturbe",
+    subNaoPerturbe: "Autorize o Zella no acesso especial do Android",
     sucessoEnvio: "E-mail Enviado",
     msgEnvio: "Verifique sua caixa de entrada para redefinir sua senha.",
     erro: "Erro",
@@ -38,6 +59,8 @@ const textos = {
     idiomaApp: "App Language",
     preferencias: "Preferences",
     notificacoes: "Push Notifications",
+    naoPerturbe: "Do Not Disturb alerts",
+    subNaoPerturbe: "Allow Zella in Android special access",
     sucessoEnvio: "Email Sent",
     msgEnvio: "Check your inbox to reset your password.",
     erro: "Error",
@@ -51,6 +74,11 @@ export default function Configuracoes() {
 
   const [idioma, setIdioma] = useState<"pt" | "en">("pt");
   const [notificacoes, setNotificacoes] = useState(true);
+  const [sosSegundoPlano, setSosSegundoPlano] = useState(false);
+  const [alertaTelaCheiaPermitido, setAlertaTelaCheiaPermitido] = useState(true);
+  const [alterandoSosSegundoPlano, setAlterandoSosSegundoPlano] = useState(false);
+  const [testeLocalAgendadoId, setTesteLocalAgendadoId] = useState<string | null>(null);
+  const testeLocalEmAndamentoRef = useRef(false);
 
   // Carrega o idioma salvo assim que o usuário entra na tela
   useEffect(() => {
@@ -66,6 +94,35 @@ export default function Configuracoes() {
     };
 
     buscarIdiomaSalvo();
+  }, []);
+
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+
+    const atualizarPermissao = () => {
+      canUseFullScreenSosAlert()
+        .then(setAlertaTelaCheiaPermitido)
+        .catch((error) => console.log('Erro ao consultar alerta em tela cheia:', error));
+    };
+    atualizarPermissao();
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') atualizarPermissao();
+    });
+    return () => subscription.remove();
+  }, []);
+
+  useEffect(() => {
+    isBackgroundSosEnabled()
+      .then(setSosSegundoPlano)
+      .catch((error) => console.log('Erro ao consultar SOS em segundo plano:', error));
+  }, []);
+
+  useEffect(() => {
+    if (!__DEV__) return;
+
+    getPendingLocalSosTestId()
+      .then(setTesteLocalAgendadoId)
+      .catch((error) => console.log('Erro ao consultar teste SOS local:', error));
   }, []);
 
   // Função para mudar o idioma e salvar a escolha no dispositivo
@@ -107,6 +164,145 @@ export default function Configuracoes() {
         },
       ]
     );
+  };
+
+  const handleAbrirAcessoNaoPerturbe = async () => {
+    try {
+      await Linking.sendIntent('android.settings.NOTIFICATION_POLICY_ACCESS_SETTINGS');
+    } catch {
+      Alert.alert(
+        t.erro,
+        idioma === 'pt'
+          ? 'Abra Acesso especial > Acesso ao Não Perturbe e autorize o Zella.'
+          : 'Open Special access > Do Not Disturb access and allow Zella.'
+      );
+    }
+  };
+
+  const handleAbrirAlertaTelaCheia = async () => {
+    try {
+      await openFullScreenSosSettings();
+    } catch {
+      Alert.alert(
+        t.erro,
+        idioma === 'pt'
+          ? 'Abra Acesso especial > Alertas em tela cheia e autorize o Zella.'
+          : 'Open Special access > Full-screen alerts and allow Zella.'
+      );
+    }
+  };
+
+  const ativarSosSegundoPlano = async () => {
+    if (Platform.OS !== 'android' || alterandoSosSegundoPlano) return;
+    setAlterandoSosSegundoPlano(true);
+    try {
+      if (!auth.currentUser) throw new Error('Entre na sua conta antes de ativar esta proteção.');
+
+      const locationPermission = await Location.requestForegroundPermissionsAsync();
+      if (!locationPermission.granted) {
+        throw new Error('A localização é necessária para enviar sua posição no SOS.');
+      }
+
+      const notificationPermission = await Notifications.requestPermissionsAsync();
+      if (!notificationPermission.granted) {
+        throw new Error('As notificações são necessárias para manter a proteção ativa.');
+      }
+
+      await syncBackgroundSosProfile();
+      await startBackgroundSos();
+      setSosSegundoPlano(true);
+      Alert.alert(
+        'Proteção em segundo plano ativada',
+        'Pressione três vezes o botão de aumentar volume em até 3 segundos para acionar o SOS. Com o app minimizado, mantenha o volume abaixo do máximo.'
+      );
+    } catch (error) {
+      setSosSegundoPlano(false);
+      Alert.alert(
+        'Não foi possível ativar',
+        error instanceof Error ? error.message : 'Tente novamente.'
+      );
+    } finally {
+      setAlterandoSosSegundoPlano(false);
+    }
+  };
+
+  const alterarSosSegundoPlano = (enabled: boolean) => {
+    if (enabled) {
+      Alert.alert(
+        'Ativar SOS em segundo plano?',
+        'Uma notificação permanente será exibida. Pressionar aumentar volume três vezes rapidamente acionará um SOS real. Diminuir volume será ignorado.',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Ativar', onPress: ativarSosSegundoPlano },
+        ]
+      );
+      return;
+    }
+
+    setAlterandoSosSegundoPlano(true);
+    stopBackgroundSos()
+      .then(() => setSosSegundoPlano(false))
+      .catch(() => Alert.alert('Erro', 'Não foi possível desativar a proteção.'))
+      .finally(() => setAlterandoSosSegundoPlano(false));
+  };
+
+  const executarTesteLocalSeguro = async () => {
+    if (!__DEV__ || testeLocalEmAndamentoRef.current) return;
+
+    testeLocalEmAndamentoRef.current = true;
+    try {
+      const identifier = await scheduleLocalSosTest();
+      setTesteLocalAgendadoId(identifier);
+      Alert.alert(
+        'Teste local agendado',
+        'O alerta aparecerá em 10 segundos. Você pode manter o app aberto, colocá-lo em segundo plano ou removê-lo dos recentes.'
+      );
+    } catch (error) {
+      const message =
+        error instanceof LocalSosTestError
+          ? error.message
+          : 'Não foi possível agendar o teste local.';
+      Alert.alert('Teste local não agendado', message);
+
+      if (error instanceof LocalSosTestError && error.code === 'already-scheduled') {
+        setTesteLocalAgendadoId(await getPendingLocalSosTestId());
+      }
+    } finally {
+      testeLocalEmAndamentoRef.current = false;
+    }
+  };
+
+  const handleTestarAlertaLocal = () => {
+    if (!__DEV__) return;
+
+    Alert.alert(
+      'Testar alerta SOS neste aparelho',
+      'Este teste é estritamente local. Nenhum contato será avisado e nenhum dado será enviado para serviços externos.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Agendar em 10 segundos', onPress: executarTesteLocalSeguro },
+      ]
+    );
+  };
+
+  const handleCancelarTesteLocal = async () => {
+    if (!__DEV__ || !testeLocalAgendadoId || testeLocalEmAndamentoRef.current) return;
+
+    testeLocalEmAndamentoRef.current = true;
+    try {
+      const canceled = await cancelLocalSosTest(testeLocalAgendadoId);
+      setTesteLocalAgendadoId(null);
+      Alert.alert(
+        canceled ? 'Teste local cancelado' : 'Teste local já entregue',
+        canceled
+          ? 'A notificação agendada foi cancelada.'
+          : 'A notificação não estava mais entre os alertas agendados.'
+      );
+    } catch {
+      Alert.alert('Erro', 'Não foi possível cancelar o teste local.');
+    } finally {
+      testeLocalEmAndamentoRef.current = false;
+    }
   };
 
   return (
@@ -184,6 +380,88 @@ export default function Configuracoes() {
               thumbColor={notificacoes ? "#751935" : "#FFF"}
             />
           </View>
+          {Platform.OS === 'android' && (
+            <View style={styles.switchContainer}>
+              <View style={[styles.leftContent, { flex: 1, paddingRight: 12 }]}>
+                <View style={styles.iconBox}>
+                  <Ionicons name="shield-checkmark-outline" size={20} color="#9c3569" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.menuText}>SOS em segundo plano</Text>
+                  <Text style={styles.subText}>Três toques em aumentar volume; diminuir é ignorado</Text>
+                </View>
+              </View>
+              <Switch
+                value={sosSegundoPlano}
+                disabled={alterandoSosSegundoPlano}
+                onValueChange={alterarSosSegundoPlano}
+                trackColor={{ false: "#EAEAEA", true: "#9c3569" }}
+                thumbColor={sosSegundoPlano ? "#751935" : "#FFF"}
+              />
+            </View>
+          )}
+          {Platform.OS === 'android' && (
+            <TouchableOpacity style={styles.menuItem} onPress={handleAbrirAcessoNaoPerturbe}>
+              <View style={styles.leftContent}>
+                <View style={styles.iconBox}>
+                  <Ionicons name="moon-outline" size={20} color="#9c3569" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.menuText}>{t.naoPerturbe}</Text>
+                  <Text style={styles.subText}>{t.subNaoPerturbe}</Text>
+                </View>
+              </View>
+              <Ionicons name="open-outline" size={18} color="#751935" />
+            </TouchableOpacity>
+          )}
+          {Platform.OS === 'android' && Number(Platform.Version) >= 34 && (
+            <TouchableOpacity style={styles.menuItem} onPress={handleAbrirAlertaTelaCheia}>
+              <View style={styles.leftContent}>
+                <View style={styles.iconBox}>
+                  <Ionicons name="phone-portrait-outline" size={20} color="#9c3569" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.menuText}>Alerta SOS em tela cheia</Text>
+                  <Text style={styles.subText}>
+                    {alertaTelaCheiaPermitido
+                      ? 'Permitido neste aparelho'
+                      : 'Toque para permitir no Android'}
+                  </Text>
+                </View>
+              </View>
+              <Ionicons
+                name={alertaTelaCheiaPermitido ? 'checkmark-circle' : 'warning-outline'}
+                size={19}
+                color={alertaTelaCheiaPermitido ? '#27864A' : '#C46B18'}
+              />
+            </TouchableOpacity>
+          )}
+          {__DEV__ && (
+            <>
+              <TouchableOpacity style={styles.menuItem} onPress={handleTestarAlertaLocal}>
+                <View style={styles.leftContent}>
+                  <View style={styles.iconBox}>
+                    <Ionicons name="flask-outline" size={20} color="#9c3569" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.menuText}>Testar alerta SOS neste aparelho</Text>
+                    <Text style={styles.subText}>Teste local; nenhum contato será avisado</Text>
+                  </View>
+                </View>
+                <Ionicons name="timer-outline" size={18} color="#751935" />
+              </TouchableOpacity>
+              {testeLocalAgendadoId && (
+                <TouchableOpacity style={styles.menuItem} onPress={handleCancelarTesteLocal}>
+                  <View style={styles.leftContent}>
+                    <View style={styles.iconBox}>
+                      <Ionicons name="close-circle-outline" size={20} color="#9c3569" />
+                    </View>
+                    <Text style={styles.menuText}>Cancelar teste local agendado</Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+            </>
+          )}
         </View>
 
       </ScrollView>

@@ -22,8 +22,19 @@
       "package": "com.zella.app",
       "googleServicesFile": "./google-services.json",
       "permissions": [
+        "android.permission.ACCESS_NOTIFICATION_POLICY",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_LOCATION",
+        "android.permission.FOREGROUND_SERVICE_SPECIAL_USE",
+        "android.permission.USE_FULL_SCREEN_INTENT",
         "RECEIVE_BOOT_COMPLETED",
         "VIBRATE"
+      ],
+      "blockedPermissions": [
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.SYSTEM_ALERT_WINDOW"
       ]
     },
     "web": {
@@ -37,7 +48,7 @@
         {
           "icon": "./assets/images/icon.png",
           "color": "#fcf0f6",
-          "sounds": []
+          "sounds": ["./assets/images/sos.mp3"]
         }
       ],
       [

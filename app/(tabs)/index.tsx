@@ -3,7 +3,7 @@ import * as Linking from 'expo-linking';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { collection, doc, getDoc, limit, onSnapshot, orderBy, query, deleteDoc } from 'firebase/firestore';
 import React, { useCallback, useEffect, useState } from 'react';
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View, Alert, Vibration } from 'react-native';
+import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { auth, db } from '../../config/firebase';
 
 const womanPerfil = require('../../assets/images/woman.png');
@@ -33,9 +33,6 @@ const HomeScreen = () => {
   const [saudacao, setSaudacao] = useState('Olá');
   const [listaContatos, setListaContatos] = useState<any[]>([]);
   const [noticiasIA, setNoticiasIA] = useState<NoticiaIA[]>([]);
-  
-  // 📍 Estados para controlar o SOS recebido em tempo real
-  const [alertaAtivo, setAlertaAtivo] = useState<any>(null);
 
   const router = useRouter();
 
@@ -64,82 +61,6 @@ const HomeScreen = () => {
 
     return () => unsubscribe();
   }, []);
-
-  // 🚨 Listener em tempo real conectado à coleção sos_history (Apenas para contatos!)
-  useEffect(() => {
-    const user = auth.currentUser;
-    if (!user) return;
-
-    const q = query(
-      collection(db, 'sos_history'),
-      orderBy('timestamp', 'desc'),
-      limit(1)
-    );
-
-    const unsubscribeAlerta = onSnapshot(q, async (snapshot) => {
-      if (!snapshot.empty) {
-        const dadosSOS = snapshot.docs[0].data();
-        const remetenteId = dadosSOS.userId;
-
-        // 🛡️ Se o SOS for meu: Ignora! Não exibe na minha própria Home.
-        if (remetenteId === user.uid) {
-          setAlertaAtivo(null);
-          return;
-        }
-
-        try {
-          // Verifica se o usuário atual pertence à rede de quem enviou o SOS
-          const remetenteDoc = await getDoc(doc(db, 'usuarios', remetenteId));
-          if (remetenteDoc.exists()) {
-            const contatosDoRemetente = remetenteDoc.data().contatosEmergencia || [];
-            if (contatosDoRemetente.includes(user.uid)) {
-              setAlertaAtivo({ id: snapshot.docs[0].id, ...dadosSOS });
-              Vibration.vibrate([1000, 500, 1000, 500, 1000], true);
-              return;
-            }
-          }
-        } catch (error) {
-          console.log("Erro ao validar permissão do alerta:", error);
-        }
-      }
-      setAlertaAtivo(null);
-    });
-
-    return () => unsubscribeAlerta();
-  }, []);
-
-  // Ação ao clicar no botão de notificação da Home
-  const lidarCliqueNotificacao = async () => {
-    Vibration.cancel();
-    if (alertaAtivo) {
-      const linkDoMapa = alertaAtivo.mapUrl || `https://maps.google.com/?q=${alertaAtivo.latitude},${alertaAtivo.longitude}`;
-
-      Alert.alert(
-        "🚨 ALERTA DE SOS!",
-        `${alertaAtivo.userName || 'Alguém'} precisa de ajuda agora! Deseja abrir a localização no mapa?`,
-        [
-          { text: "Cancelar", style: "cancel" },
-          { 
-            text: "Abrir Mapa", 
-            onPress: () => {
-              Linking.openURL(linkDoMapa).catch((err) => 
-                console.error("Não foi possível abrir o mapa:", err)
-              );
-            } 
-          },
-          {
-            text: "Limpar Alerta",
-            style: "destructive",
-            onPress: () => {
-              setAlertaAtivo(null);
-            }
-          }
-        ]
-      );
-    } else {
-      Alert.alert("Notificações", "Nenhuma emergência ativa ou pendente no momento.");
-    }
-  };
 
   useFocusEffect(
     useCallback(() => {
@@ -207,16 +128,6 @@ const HomeScreen = () => {
           <View style={styles.topActions}>
             <TouchableOpacity style={styles.avatarButton} onPress={() => router.push('/perfil' as any)}>
               <Ionicons name={AVATARES[avatarId] as any || "person"} size={24} color="#751935" />
-            </TouchableOpacity>
-            
-            {/* 🔔 BOTÃO DE NOTIFICAÇÃO COM BADGE DE ALERTA DINÂMICO */}
-            <TouchableOpacity style={styles.notificationButton} onPress={lidarCliqueNotificacao}>
-              <Ionicons 
-                name={alertaAtivo ? "notifications-sharp" : "notifications"} 
-                size={24} 
-                color={alertaAtivo ? "#760c27ff" : "#7a0a2aff"} 
-              />
-              {alertaAtivo && <View style={styles.badgeAlerta} />}
             </TouchableOpacity>
           </View>
         </View>
@@ -341,8 +252,6 @@ const styles = StyleSheet.create({
   subBrandBold: { color: '#751935', fontWeight: 'bold' },
   topActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   avatarButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#FFF', justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#EFEFEF', elevation: 2 },
-  notificationButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#FFF', justifyContent: 'center', alignItems: 'center', elevation: 2, position: 'relative' },
-  badgeAlerta: { position: 'absolute', top: 2, right: 2, width: 12, height: 12, borderRadius: 6, backgroundColor: '#c31e50ff', borderWidth: 2, borderColor: '#FFF' },
   greeting: { fontSize: 20, fontWeight: 'bold', color: '#4d2a33ff', marginTop: 15, marginBottom: 20 },
   safetyCard: { backgroundColor: '#f0c4cfff', borderRadius: 24, padding: 20, flexDirection: 'row', alignItems: 'center', marginBottom: 25, borderWidth: 1, borderColor: '#ffffffff', overflow: 'hidden', elevation: 3 },
   safetyShieldCircle: { width: 50, height: 50, borderRadius: 25, backgroundColor: 'rgba(255, 255, 255, 0.6)', justifyContent: 'center', alignItems: 'center' },

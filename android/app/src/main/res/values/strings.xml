@@ -1,5 +1,6 @@
 <resources>
   <string name="app_name">Zella</string>
+  <string name="sos_volume_accessibility_description">Detecta três pressionamentos no botão de aumentar volume para acionar o SOS, inclusive com o Zella minimizado.</string>
   <string name="expo_system_ui_user_interface_style" translatable="false">automatic</string>
   <string name="expo_splash_screen_resize_mode" translatable="false">contain</string>
   <string name="expo_splash_screen_status_bar_translucent" translatable="false">false</string>

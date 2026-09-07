@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { 
+import {
   View, 
   Text, 
   StyleSheet as RNStyleSheet, 
@@ -24,6 +24,7 @@ import {
   getDocs,
   deleteField 
 } from 'firebase/firestore';
+import { syncBackgroundSosProfile } from '../../services/background-sos-control';
 
 const AVATARES = [
   { id: "person", icon: "person", color: "#921637ff" },
@@ -120,6 +121,8 @@ export default function ContatosScreen() {
       const userRef = doc(db, 'usuarios', auth.currentUser!.uid);
       await updateDoc(userRef, { contatosEmergencia: arrayUnion(contatoId) });
 
+      await syncBackgroundSosProfile();
+
       setEmailBusca('');
       buscarContatosSalvos();
       Alert.alert("Sucesso", "Contato adicionado!");
@@ -152,6 +155,7 @@ export default function ContatosScreen() {
         contatosEmergencia: arrayRemove(id),
         [`apelidosContatos.${id}`]: deleteField()
       });
+      await syncBackgroundSosProfile();
       setContatos(contatos.filter(c => c.id !== id));
     } catch (error) {
       Alert.alert("Erro", "Não removeu.");

@@ -9,6 +9,7 @@ import {
     KeyboardAvoidingView,
     Platform,
     ScrollView,
+    Switch,
     StyleSheet,
     Text,
     TextInput,
@@ -39,6 +40,9 @@ const textosMeuPerfil = {
     placeholderUsername: "@seu_user",
     labelTelefone: "Telefone / Celular",
     placeholderTelefone: "(11) 99999-9999",
+    labelWhatsappSos: "Receber alertas SOS pelo WhatsApp",
+    ajudaWhatsappSos: "Autorize o Zella a enviar mensagens automáticas de emergência para este número.",
+    telefoneObrigatorio: "Informe seu telefone com DDD antes de ativar os alertas pelo WhatsApp.",
     labelEmail: "E-mail da Conta",
     botaoSalvar: "SALVAR ALTERAÇÕES",
     botaoSalvando: "SALVANDO...",
@@ -59,6 +63,9 @@ const textosMeuPerfil = {
     placeholderUsername: "@your_user",
     labelTelefone: "Phone Number",
     placeholderTelefone: "+1 (11) 99999-9999",
+    labelWhatsappSos: "Receive SOS alerts on WhatsApp",
+    ajudaWhatsappSos: "Allow Zella to send automatic emergency messages to this number.",
+    telefoneObrigatorio: "Enter your phone number before enabling WhatsApp alerts.",
     labelEmail: "Account Email",
     botaoSalvar: "SAVE CHANGES",
     botaoSalvando: "SAVING...",
@@ -83,6 +90,8 @@ export default function MeuPerfil() {
   const [nome, setNome] = useState(user?.displayName || "");
   const [username, setUsername] = useState("");
   const [telefone, setTelefone] = useState("");
+  const [whatsappSosEnabled, setWhatsappSosEnabled] = useState(false);
+  const [whatsappSosDirty, setWhatsappSosDirty] = useState(false);
   const [avatarSelecionado, setAvatarSelecionado] = useState("person");
 
   // Estados de controle da interface
@@ -121,6 +130,7 @@ export default function MeuPerfil() {
           const dados = docSnap.data();
           if (dados.username) setUsername(dados.username);
           if (dados.telefone) setTelefone(dados.telefone);
+          setWhatsappSosEnabled(dados.whatsappSosEnabled === true);
           if (dados.avatarId) setAvatarSelecionado(dados.avatarId);
         }
       } catch (error) {
@@ -141,6 +151,10 @@ export default function MeuPerfil() {
       Alert.alert(t.aviso, t.avisoNomeVazio);
       return;
     }
+    if (whatsappSosEnabled && !telefone.trim()) {
+      Alert.alert(t.aviso, t.telefoneObrigatorio);
+      return;
+    }
 
     setLoading(true);
     try {
@@ -151,6 +165,7 @@ export default function MeuPerfil() {
         nome: nome.trim(),
         username: username.trim(),
         telefone: telefone.trim(),
+        whatsappSosEnabled,
         avatarId: avatarSelecionado,
         email: user.email,
         updatedAt: new Date()
@@ -159,6 +174,7 @@ export default function MeuPerfil() {
       setIsEditingNome(false);
       setIsEditingUsername(false);
       setIsEditingTelefone(false);
+      setWhatsappSosDirty(false);
 
       Alert.alert(t.sucesso, t.sucessoMsg);
     } catch (error) {
@@ -285,6 +301,22 @@ export default function MeuPerfil() {
             </TouchableOpacity>
           </View>
 
+          <View style={styles.whatsappConsentRow}>
+            <View style={styles.whatsappConsentText}>
+              <Text style={styles.label}>{t.labelWhatsappSos}</Text>
+              <Text style={styles.whatsappHelp}>{t.ajudaWhatsappSos}</Text>
+            </View>
+            <Switch
+              value={whatsappSosEnabled}
+              onValueChange={(value) => {
+                setWhatsappSosEnabled(value);
+                setWhatsappSosDirty(true);
+              }}
+              trackColor={{ false: '#D8CDD1', true: '#B75A75' }}
+              thumbColor={whatsappSosEnabled ? '#751935' : '#F5F5F5'}
+            />
+          </View>
+
           {/* EMAIL (SEMPRE BLOQUEADO) */}
           <Text style={styles.label}>{t.labelEmail}</Text>
           <View style={[styles.inputWrapper, styles.disabledInput]}>
@@ -297,7 +329,7 @@ export default function MeuPerfil() {
           </View>
 
           {/* BOTÃO SALVAR */}
-          {(isEditingNome || isEditingUsername || isEditingTelefone || avatarSelecionado !== "person") && (
+          {(isEditingNome || isEditingUsername || isEditingTelefone || whatsappSosDirty || avatarSelecionado !== "person") && (
             <TouchableOpacity style={styles.button} onPress={handleSalvar} disabled={loading}>
               <Text style={styles.buttonText}>
                 {loading ? t.botaoSalvando : t.botaoSalvar}
@@ -428,6 +460,25 @@ const styles = StyleSheet.create({
     color: "#3D1F2B",
     fontSize: 16,
     fontWeight: "500",
+  },
+  whatsappConsentRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
+    backgroundColor: "#FFF",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#EFEFEF",
+    padding: 16,
+  },
+  whatsappConsentText: {
+    flex: 1,
+    gap: 10,
+  },
+  whatsappHelp: {
+    color: "#735A64",
+    fontSize: 12,
+    lineHeight: 17,
   },
   button: {
     backgroundColor: "#751935",

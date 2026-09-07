@@ -3,6 +3,9 @@ import expo.modules.splashscreen.SplashScreenManager
 
 import android.os.Build
 import android.os.Bundle
+import android.content.Intent
+import android.view.WindowManager
+import android.view.KeyEvent
 
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate
@@ -12,6 +15,13 @@ import com.facebook.react.defaults.DefaultReactActivityDelegate
 import expo.modules.ReactActivityDelegateWrapper
 
 class MainActivity : ReactActivity() {
+  companion object {
+    const val EXTRA_FULL_SCREEN_SOS = "zellaFullScreenSos"
+
+    @Volatile
+    var isInForeground: Boolean = false
+  }
+
   override fun onCreate(savedInstanceState: Bundle?) {
     // Set the theme to AppTheme BEFORE onCreate to support
     // coloring the background, status bar, and navigation bar.
@@ -21,6 +31,28 @@ class MainActivity : ReactActivity() {
     SplashScreenManager.registerOnActivity(this)
     // @generated end expo-splashscreen
     super.onCreate(null)
+    prepareForFullScreenSos(intent)
+  }
+
+  override fun onNewIntent(intent: Intent) {
+    super.onNewIntent(intent)
+    setIntent(intent)
+    prepareForFullScreenSos(intent)
+  }
+
+  private fun prepareForFullScreenSos(intent: Intent?) {
+    if (intent?.getBooleanExtra(EXTRA_FULL_SCREEN_SOS, false) != true) return
+
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+      setShowWhenLocked(true)
+      setTurnScreenOn(true)
+    } else {
+      @Suppress("DEPRECATION")
+      window.addFlags(
+        WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+          WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+      )
+    }
   }
 
   /**
@@ -28,6 +60,27 @@ class MainActivity : ReactActivity() {
    * rendering of the component.
    */
   override fun getMainComponentName(): String = "main"
+
+  override fun onResume() {
+    super.onResume()
+    isInForeground = true
+  }
+
+  override fun onPause() {
+    isInForeground = false
+    super.onPause()
+  }
+
+  override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+    if (
+      event.action == KeyEvent.ACTION_DOWN &&
+      event.repeatCount == 0 &&
+      event.keyCode == KeyEvent.KEYCODE_VOLUME_UP
+    ) {
+      VolumeUpSosTrigger.recordVolumeUp(this)
+    }
+    return super.dispatchKeyEvent(event)
+  }
 
   /**
    * Returns the instance of the [ReactActivityDelegate]. We use [DefaultReactActivityDelegate]

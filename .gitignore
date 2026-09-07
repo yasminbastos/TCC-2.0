@@ -6,8 +6,15 @@ web-build/
 build/
 bin/
 
+# Artefatos locais de distribuição/publicação
+.firebase/
+hosting/
+Zella-SOS-QR.png
+android/replay_pid*.log
+
 # Android específico (Mantém as configurações, ignora o "lixo" da compilação)
 android/.gradle/
+android/.kotlin/
 android/build/
 android/app/build/
 android/local.properties

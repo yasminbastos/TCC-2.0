@@ -15,6 +15,10 @@ import { auth, db } from "../../config/firebase";
 import { useRouter, useFocusEffect } from "expo-router";
 import { doc, getDoc } from "firebase/firestore";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import {
+  BACKGROUND_SOS_PROFILE_KEY,
+  stopBackgroundSos,
+} from "../../services/background-sos-control";
 
 import {
   Ionicons,
@@ -104,6 +108,8 @@ export default function Perfil() {
 
   const handleLogout = async () => {
     try {
+      await stopBackgroundSos();
+      await AsyncStorage.removeItem(BACKGROUND_SOS_PROFILE_KEY);
       await signOut(auth);
       router.replace("/auth/login");
     } catch (error) {
