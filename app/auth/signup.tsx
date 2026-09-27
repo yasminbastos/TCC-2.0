@@ -12,7 +12,6 @@ import { doc, setDoc } from 'firebase/firestore';
 
 import {
   ActivityIndicator,
-  Alert,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -26,6 +25,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { auth, db } from '../../config/firebase';
 import { Colors } from '../../constants/theme';
+import { showAppAlert } from '@/components/app-alert';
 
 // Dicionário de Idiomas para o Cadastro
 const textosCadastro = {
@@ -43,8 +43,8 @@ const textosCadastro = {
     errGeral: "Erro ao criar conta.",
     btnCadastrar: "CADASTRAR",
     textoCheckbox: "Eu aceito a ",
-    linkPolitica: "Política de Privacidade",
-    avisoPolitica: "Você precisa aceitar a Política de Privacidade para continuar.",
+    linkPolitica: "Termos de Uso e Aviso de Privacidade",
+    avisoPolitica: "Você precisa aceitar os Termos de Uso e o Aviso de Privacidade para continuar.",
     jaTemConta: "Já tem conta? ",
     entrar: "Entrar",
   },
@@ -62,8 +62,8 @@ const textosCadastro = {
     errGeral: "Error creating account.",
     btnCadastrar: "SIGN UP",
     textoCheckbox: "I agree to the ",
-    linkPolitica: "Privacy Policy",
-    avisoPolitica: "You must accept the Privacy Policy to proceed.",
+    linkPolitica: "Terms of Use and Privacy Notice",
+    avisoPolitica: "You must accept the Terms of Use and Privacy Notice to proceed.",
     jaTemConta: "Already have an account? ",
     entrar: "Sign in",
   }
@@ -109,24 +109,24 @@ export default function SignUpScreen() {
 
   const handleSignUp = async () => {
     if (!nome || !email || !senha || !confirmarSenha) {
-      Alert.alert(idioma === 'pt' ? 'Erro' : 'Error', t.avisoPreencha);
+      showAppAlert(idioma === 'pt' ? 'Erro' : 'Error', t.avisoPreencha);
       return;
     }
 
     if (senha !== confirmarSenha) {
-      Alert.alert(idioma === 'pt' ? 'Erro' : 'Error', t.avisoSenhas);
+      showAppAlert(idioma === 'pt' ? 'Erro' : 'Error', t.avisoSenhas);
       return;
     }
 
     // Validação se o Checkbox está marcado
     if (!aceitouPolitica) {
-      Alert.alert(idioma === 'pt' ? 'Aviso' : 'Notice', t.avisoPolitica);
+      showAppAlert(idioma === 'pt' ? 'Aviso' : 'Notice', t.avisoPolitica);
       return;
     }
 
     const regexSenhaForte = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d]{8,}$/;
     if (!regexSenhaForte.test(senha)) {
-      Alert.alert(t.titSenhaFraca, t.msgSenhaFraca);
+      showAppAlert(t.titSenhaFraca, t.msgSenhaFraca);
       return;
     }
 
@@ -149,7 +149,7 @@ export default function SignUpScreen() {
 
       await sendEmailVerification(user);
 
-      Alert.alert(
+      showAppAlert(
         t.titSucesso,
         t.msgSucesso,
         [{ text: 'OK', onPress: () => router.replace('/auth/login') }]
@@ -161,7 +161,7 @@ export default function SignUpScreen() {
       if (error.code === 'auth/email-already-in-use') {
         mensagem = t.errUso;
       }
-      Alert.alert(idioma === 'pt' ? 'Erro' : 'Error', mensagem);
+      showAppAlert(idioma === 'pt' ? 'Erro' : 'Error', mensagem);
     } finally {
       setLoading(false);
     }

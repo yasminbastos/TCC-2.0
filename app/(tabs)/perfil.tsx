@@ -4,7 +4,6 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   ScrollView,
   StatusBar,
   ActivityIndicator,
@@ -24,6 +23,7 @@ import {
   Ionicons,
   MaterialIcons,
 } from "@expo/vector-icons";
+import { showAppAlert } from '@/components/app-alert';
 
 // Mapeamento dos avatares utilizando as cores oficiais do aplicativo
 const AVATARES = [
@@ -43,7 +43,7 @@ const textosPerfil = {
     usuarioPadrao: "Usuário",
     meuPerfil: "Meu Perfil",
     configuracoes: "Configurações",
-    politica: "Política de Privacidade",
+    politica: "Termos de Uso e Privacidade",
     sair: "Sair do aplicativo",
     erro: "Erro",
     erroMsg: "Não foi possível sair da conta.",
@@ -54,7 +54,7 @@ const textosPerfil = {
     usuarioPadrao: "User",
     meuPerfil: "My Profile",
     configuracoes: "Settings",
-    politica: "Privacy Policy",
+    politica: "Terms of Use & Privacy",
     sair: "Log Out",
     erro: "Error",
     erroMsg: "Could not log out.",
@@ -114,7 +114,7 @@ export default function Perfil() {
       router.replace("/auth/login");
     } catch (error) {
       console.log("Erro ao sair:", error);
-      Alert.alert(t.erro, t.erroMsg);
+      showAppAlert(t.erro, t.erroMsg);
     }
   };
 

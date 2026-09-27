@@ -19,6 +19,7 @@ import {
   startBackgroundSos,
   syncBackgroundSosProfile,
 } from '@/services/background-sos-control';
+import { AppAlertProvider } from '@/components/app-alert';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -180,14 +181,16 @@ export default function RootLayout() {
   }, [router]);
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="auth/login" />
-        <Stack.Screen name="auth/signup" />
-        <Stack.Screen name="sos-recebido" />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <AppAlertProvider>
+      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="auth/login" />
+          <Stack.Screen name="auth/signup" />
+          <Stack.Screen name="sos-recebido" />
+        </Stack>
+        <StatusBar style="auto" />
+      </ThemeProvider>
+    </AppAlertProvider>
   );
 }

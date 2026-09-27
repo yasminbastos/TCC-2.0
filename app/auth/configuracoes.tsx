@@ -6,7 +6,6 @@ import * as Notifications from "expo-notifications";
 import { sendPasswordResetEmail } from "firebase/auth";
 import React, { useEffect, useRef, useState } from "react";
 import {
-    Alert,
     AppState,
     Linking,
     Platform,
@@ -17,6 +16,7 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
+import { showAppAlert } from '@/components/app-alert';
 import { auth } from "../../config/firebase";
 import {
   canUseFullScreenSosAlert,
@@ -139,11 +139,11 @@ export default function Configuracoes() {
 
   const handleMudarSenha = async () => {
     if (!user || !user.email) {
-      Alert.alert(t.erro, "User not found / Usuário não encontrado.");
+      showAppAlert(t.erro, "User not found / Usuário não encontrado.");
       return;
     }
 
-    Alert.alert(
+    showAppAlert(
       t.alterarSenha,
       idioma === "pt" 
         ? `Deseja enviar um e-mail de redefinição para: ${user.email}?`
@@ -155,10 +155,10 @@ export default function Configuracoes() {
           onPress: async () => {
             try {
               await sendPasswordResetEmail(auth, user.email!);
-              Alert.alert(t.sucessoEnvio, t.msgEnvio);
+              showAppAlert(t.sucessoEnvio, t.msgEnvio);
             } catch (error) {
               console.log("Erro ao redefinir senha:", error);
-              Alert.alert(t.erro, t.msgErro);
+              showAppAlert(t.erro, t.msgErro);
             }
           },
         },
@@ -170,7 +170,7 @@ export default function Configuracoes() {
     try {
       await Linking.sendIntent('android.settings.NOTIFICATION_POLICY_ACCESS_SETTINGS');
     } catch {
-      Alert.alert(
+      showAppAlert(
         t.erro,
         idioma === 'pt'
           ? 'Abra Acesso especial > Acesso ao Não Perturbe e autorize o Zella.'
@@ -183,7 +183,7 @@ export default function Configuracoes() {
     try {
       await openFullScreenSosSettings();
     } catch {
-      Alert.alert(
+      showAppAlert(
         t.erro,
         idioma === 'pt'
           ? 'Abra Acesso especial > Alertas em tela cheia e autorize o Zella.'
@@ -211,13 +211,13 @@ export default function Configuracoes() {
       await syncBackgroundSosProfile();
       await startBackgroundSos();
       setSosSegundoPlano(true);
-      Alert.alert(
+      showAppAlert(
         'Proteção em segundo plano ativada',
         'Pressione três vezes o botão de aumentar volume em até 3 segundos para acionar o SOS. Com o app minimizado, mantenha o volume abaixo do máximo.'
       );
     } catch (error) {
       setSosSegundoPlano(false);
-      Alert.alert(
+      showAppAlert(
         'Não foi possível ativar',
         error instanceof Error ? error.message : 'Tente novamente.'
       );
@@ -228,7 +228,7 @@ export default function Configuracoes() {
 
   const alterarSosSegundoPlano = (enabled: boolean) => {
     if (enabled) {
-      Alert.alert(
+      showAppAlert(
         'Ativar SOS em segundo plano?',
         'Uma notificação permanente será exibida. Pressionar aumentar volume três vezes rapidamente acionará um SOS real. Diminuir volume será ignorado.',
         [
@@ -242,7 +242,7 @@ export default function Configuracoes() {
     setAlterandoSosSegundoPlano(true);
     stopBackgroundSos()
       .then(() => setSosSegundoPlano(false))
-      .catch(() => Alert.alert('Erro', 'Não foi possível desativar a proteção.'))
+      .catch(() => showAppAlert('Erro', 'Não foi possível desativar a proteção.'))
       .finally(() => setAlterandoSosSegundoPlano(false));
   };
 
@@ -253,7 +253,7 @@ export default function Configuracoes() {
     try {
       const identifier = await scheduleLocalSosTest();
       setTesteLocalAgendadoId(identifier);
-      Alert.alert(
+      showAppAlert(
         'Teste local agendado',
         'O alerta aparecerá em 10 segundos. Você pode manter o app aberto, colocá-lo em segundo plano ou removê-lo dos recentes.'
       );
@@ -262,7 +262,7 @@ export default function Configuracoes() {
         error instanceof LocalSosTestError
           ? error.message
           : 'Não foi possível agendar o teste local.';
-      Alert.alert('Teste local não agendado', message);
+      showAppAlert('Teste local não agendado', message);
 
       if (error instanceof LocalSosTestError && error.code === 'already-scheduled') {
         setTesteLocalAgendadoId(await getPendingLocalSosTestId());
@@ -275,7 +275,7 @@ export default function Configuracoes() {
   const handleTestarAlertaLocal = () => {
     if (!__DEV__) return;
 
-    Alert.alert(
+    showAppAlert(
       'Testar alerta SOS neste aparelho',
       'Este teste é estritamente local. Nenhum contato será avisado e nenhum dado será enviado para serviços externos.',
       [
@@ -292,14 +292,14 @@ export default function Configuracoes() {
     try {
       const canceled = await cancelLocalSosTest(testeLocalAgendadoId);
       setTesteLocalAgendadoId(null);
-      Alert.alert(
+      showAppAlert(
         canceled ? 'Teste local cancelado' : 'Teste local já entregue',
         canceled
           ? 'A notificação agendada foi cancelada.'
           : 'A notificação não estava mais entre os alertas agendados.'
       );
     } catch {
-      Alert.alert('Erro', 'Não foi possível cancelar o teste local.');
+      showAppAlert('Erro', 'Não foi possível cancelar o teste local.');
     } finally {
       testeLocalEmAndamentoRef.current = false;
     }

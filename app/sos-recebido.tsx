@@ -2,7 +2,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
   Linking,
   Platform,
   SafeAreaView,
@@ -13,6 +12,7 @@ import {
 } from 'react-native';
 
 import { playSOSSound, stopSOSSound } from './useSOSAlarm';
+import { showAppAlert } from '@/components/app-alert';
 
 function firstParam(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
@@ -79,7 +79,7 @@ export default function SosRecebidoScreen() {
     try {
       await Linking.openURL(mapUrl);
     } catch {
-      Alert.alert('Não foi possível abrir o mapa', 'Tente novamente em instantes.');
+      showAppAlert('Não foi possível abrir o mapa', 'Tente novamente em instantes.');
     }
   };
 
@@ -88,7 +88,7 @@ export default function SosRecebidoScreen() {
     try {
       await Linking.sendIntent('android.settings.NOTIFICATION_POLICY_ACCESS_SETTINGS');
     } catch {
-      Alert.alert(
+      showAppAlert(
         'Abra as configurações do Android',
         'Procure por Acesso especial > Acesso ao Não Perturbe e autorize o Zella.'
       );

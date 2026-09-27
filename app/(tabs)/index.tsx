@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Linking from 'expo-linking';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { collection, doc, getDoc, limit, onSnapshot, orderBy, query, deleteDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, limit, onSnapshot, orderBy, query } from 'firebase/firestore';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { auth, db } from '../../config/firebase';
@@ -176,12 +176,10 @@ const HomeScreen = () => {
             >
               <View style={styles.contactAvatarCircle}>
                 <Ionicons name={AVATARES[contato.avatarId] as any || "person-outline"} size={22} color="#751935" />
-                <View style={[styles.statusDot, { backgroundColor: '#2caa41ff' }]} />
               </View>
               <Text style={styles.contactName} numberOfLines={1}>
                 {contato.nomeExibicao}
               </Text>
-              <Text style={styles.contactStatusText}>● Online</Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
@@ -266,9 +264,7 @@ const styles = StyleSheet.create({
   networkItem: { alignItems: 'center', width: 75 },
   addContactCircle: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#e8bfc7ff', justifyContent: 'center', alignItems: 'center', marginBottom: 6 },
   contactAvatarCircle: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#FFF', justifyContent: 'center', alignItems: 'center', marginBottom: 6, borderWidth: 1, borderColor: '#FFD6E0', position: 'relative' },
-  statusDot: { position: 'absolute', bottom: 0, right: 2, width: 12, height: 12, borderRadius: 6, borderWidth: 2, borderColor: '#FFF' },
   contactName: { fontSize: 11, fontWeight: '600', color: '#333', textAlign: 'center' },
-  contactStatusText: { fontSize: 9, color: '#0b9d23ff', fontWeight: 'bold', marginTop: 2 },
   noticiasRow: { gap: 16, paddingVertical: 4, paddingRight: 24, marginBottom: 30 },
   noticiaCard: { backgroundColor: '#FFF', width: 300, borderRadius: 20, padding: 16, borderWidth: 1, borderColor: '#FFFFFF', elevation: 3, shadowColor: '#830c30ff', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 },
   noticiaImage: { width: '100%', height: 130, borderRadius: 12, marginBottom: 10 },

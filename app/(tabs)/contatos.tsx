@@ -6,7 +6,6 @@ import {
   TextInput, 
   TouchableOpacity, 
   FlatList, 
-  Alert, 
   ActivityIndicator, 
   Modal 
 } from 'react-native';
@@ -25,6 +24,7 @@ import {
   deleteField 
 } from 'firebase/firestore';
 import { syncBackgroundSosProfile } from '../../services/background-sos-control';
+import { showAppAlert } from '@/components/app-alert';
 
 const AVATARES = [
   { id: "person", icon: "person", color: "#921637ff" },
@@ -90,13 +90,13 @@ export default function ContatosScreen() {
 
     // 1️⃣ Validação de campo vazio
     if (emailLimpo === '') {
-      Alert.alert("Erro", "Digite o e-mail.");
+      showAppAlert("Erro", "Digite o e-mail.");
       return;
     }
 
     // 2️⃣ 🚫 BLOQUEIO DE SEGURANÇA: Não deixa adicionar você mesma!
     if (emailLimpo === auth.currentUser?.email?.toLowerCase()) {
-      Alert.alert("Aviso", "Você não pode adicionar você mesma como seu próprio contato de emergência.");
+      showAppAlert("Aviso", "Você não pode adicionar você mesma como seu próprio contato de emergência.");
       return; 
     }
 
@@ -106,14 +106,14 @@ export default function ContatosScreen() {
       const querySnapshot = await getDocs(q);
 
       if (querySnapshot.empty) {
-        Alert.alert("Não encontrado", "E-mail não cadastrado no Zella.");
+        showAppAlert("Não encontrado", "E-mail não cadastrado no Zella.");
         setLoading(false);
         return;
       }
 
       const contatoId = querySnapshot.docs[0].id;
       if (contatos.some(c => c.id === contatoId)) {
-        Alert.alert("Aviso", "Já está na sua lista.");
+        showAppAlert("Aviso", "Já está na sua lista.");
         setLoading(false);
         return;
       }
@@ -125,9 +125,9 @@ export default function ContatosScreen() {
 
       setEmailBusca('');
       buscarContatosSalvos();
-      Alert.alert("Sucesso", "Contato adicionado!");
+      showAppAlert("Sucesso", "Contato adicionado!");
     } catch (error) {
-      Alert.alert("Erro", "Falha ao adicionar.");
+      showAppAlert("Erro", "Falha ao adicionar.");
     } finally {
       setLoading(false);
     }
@@ -142,9 +142,9 @@ export default function ContatosScreen() {
       });
       setModalVisivel(false);
       buscarContatosSalvos(); 
-      Alert.alert("Sucesso", "Nome de exibição updated!");
+      showAppAlert("Sucesso", "Nome de exibição atualizado!");
     } catch (error) {
-      Alert.alert("Erro", "Não foi possível salvar o apelido.");
+      showAppAlert("Erro", "Não foi possível salvar o apelido.");
     }
   };
 
@@ -158,7 +158,7 @@ export default function ContatosScreen() {
       await syncBackgroundSosProfile();
       setContatos(contatos.filter(c => c.id !== id));
     } catch (error) {
-      Alert.alert("Erro", "Não removeu.");
+      showAppAlert("Erro", "Não foi possível remover o contato.");
     }
   };
 

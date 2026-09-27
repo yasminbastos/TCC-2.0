@@ -35,7 +35,9 @@ export default function Index() {
 
   useEffect(() => {
     // --- ANIMAÇÃO DE ENTRADA (LOGO) ---
-    Animated.parallel([
+    let pulseAnimation: Animated.CompositeAnimation | null = null;
+
+    const logoIntroAnimation = Animated.parallel([
       Animated.timing(logoFade, {
         toValue: 1,
         duration: 1200,
@@ -54,9 +56,13 @@ export default function Index() {
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
-    ]).start(() => {
+    ]);
+
+    logoIntroAnimation.start(({ finished }) => {
+      if (!finished) return;
+
       // --- PULSAÇÃO DA LOGO (Só começa após estabilizar) ---
-      Animated.loop(
+      pulseAnimation = Animated.loop(
         Animated.sequence([
           Animated.timing(logoPulse, {
             toValue: 1.03, // Pulsação sutil (3%) para não ficar agressivo
@@ -71,11 +77,12 @@ export default function Index() {
             useNativeDriver: true,
           }),
         ])
-      ).start();
+      );
+      pulseAnimation.start();
     });
 
     // --- ENTRADA DO TEXTO (Atraso de 400ms para efeito cascata) ---
-    Animated.sequence([
+    const textAnimation = Animated.sequence([
       Animated.delay(400),
       Animated.parallel([
         Animated.timing(textFade, {
@@ -91,7 +98,8 @@ export default function Index() {
           useNativeDriver: true,
         }),
       ]),
-    ]).start();
+    ]);
+    textAnimation.start();
 
     // --- CONFIGURAÇÃO DAS ONDAS FLUIDAS ---
     const criarLoopOnda = (animacao: Animated.Value, delay: number) => {
@@ -114,8 +122,10 @@ export default function Index() {
     };
 
     // Inicializa a Onda 1 imediatamente e a Onda 2 com 1.25s de atraso
-    criarLoopOnda(waveAnim1, 0).start();
-    criarLoopOnda(waveAnim2, 1250).start();
+    const waveAnimation1 = criarLoopOnda(waveAnim1, 0);
+    const waveAnimation2 = criarLoopOnda(waveAnim2, 1250);
+    waveAnimation1.start();
+    waveAnimation2.start();
 
     // --- FIREBASE & TIMEOUT ---
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -131,10 +141,15 @@ export default function Index() {
     }, 4000); // 4 segundos para desfrutar da animação completa
 
     return () => {
+      logoIntroAnimation.stop();
+      pulseAnimation?.stop();
+      textAnimation.stop();
+      waveAnimation1.stop();
+      waveAnimation2.stop();
       unsubscribe();
       clearTimeout(timer);
     };
-  }, []);
+  }, [logoFade, logoPulse, logoScale, logoTranslate, textFade, textTranslate, waveAnim1, waveAnim2]);
 
   useEffect(() => {
     // Uma notificação pode abrir outra rota durante a splash no cold start.

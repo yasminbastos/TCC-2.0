@@ -89,6 +89,15 @@ android {
 
     namespace 'com.zella.app'
     defaultConfig {
+        // Configure the app after its Android DSL is initialized; the root
+        // plugin callback alone does not reach the app's generated JNI targets.
+        if (System.getProperty('os.name').toLowerCase().contains('windows')) {
+            externalNativeBuild {
+                cmake {
+                    arguments '-DCMAKE_SHARED_LINKER_FLAGS=--driver-mode=g++'
+                }
+            }
+        }
         applicationId 'com.zella.app'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion

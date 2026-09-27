@@ -8,13 +8,13 @@ import {
   Linking,
   ActivityIndicator,
   Image,
-  Alert,
   SafeAreaView
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { db, auth } from '../../config/firebase';
 import { collection, query, where, getDocs, orderBy, doc, deleteDoc, writeBatch } from 'firebase/firestore';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { showAppAlert } from '@/components/app-alert';
 
 // SUBSTTTUA PELA SUA CHAVE DO GOOGLE MAPS (Caso tenha uma)
 const GOOGLE_MAPS_API_KEY = 'SUA_CHAVE_API_AQUI';
@@ -99,11 +99,11 @@ const HistoryScreen = () => {
   // Confirmar Exclusão com Modal
   const confirmDelete = () => {
     if (selectedIds.length === 0) {
-      Alert.alert("Atenção", "Selecione pelo menos um registro para excluir.");
+      showAppAlert("Atenção", "Selecione pelo menos um registro para excluir.");
       return;
     }
 
-    Alert.alert(
+    showAppAlert(
       "Confirmar Exclusão",
       `Tem certeza que deseja apagar ${selectedIds.length} registro(s) do histórico? Esta ação não pode ser desfeita.`,
       [
@@ -135,7 +135,7 @@ const HistoryScreen = () => {
       await loadHistory();
     } catch (error) {
       console.error("Erro ao excluir registros:", error);
-      Alert.alert("Erro", "Não foi possível excluir os registros selecionados.");
+      showAppAlert("Erro", "Não foi possível excluir os registros selecionados.");
       setLoading(false);
     }
   };

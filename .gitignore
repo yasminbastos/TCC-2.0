@@ -10,6 +10,8 @@ bin/
 .firebase/
 hosting/
 Zella-SOS-QR.png
+*.apk
+zella_*_test.png
 android/replay_pid*.log
 
 # Android específico (Mantém as configurações, ignora o "lixo" da compilação)

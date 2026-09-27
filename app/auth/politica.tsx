@@ -1,219 +1,123 @@
-import React, { useState, useCallback } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  StatusBar,
-} from "react-native";
-import { useRouter, useFocusEffect } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useState } from 'react';
+import { ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-// Dicionário de tradução local
-const textosPolitica = {
+type Section = { icon: keyof typeof Ionicons.glyphMap; title: string; text: string };
+
+const content = {
   pt: {
-    titulo: "Privacidade",
-    subtitulo: "Política de Privacidade",
-    introducao: "A sua privacidade é importante para nós. Conheça de forma transparente como cuidamos dos seus dados.",
-    secao1Titulo: "Coleta de Dados",
-    secao1Texto: "Coletamos informações como nome, username e telefone apenas para personalização do perfil e autenticação segura.",
-    secao2Titulo: "Segurança Total",
-    secao2Texto: "Seus dados são criptografados e armazenados de forma isolada no Firebase, sem qualquer compartilhamento com terceiros.",
-    secao3Titulo: "Seu Consentimento",
-    secao3Texto: "Ao utilizar o aplicativo, você autoriza o uso das informações fornecidas estritamente para o funcionamento do sistema.",
-    rodape: "Última atualização: Junho de 2026",
+    header: 'Termos e Privacidade',
+    eyebrow: 'ZELLA • DOCUMENTO LEGAL',
+    title: 'Termos de Uso e Aviso de Privacidade',
+    introduction: 'Este documento explica as regras de utilização do Zella e como os dados pessoais necessários ao serviço são tratados. Leia-o antes de criar ou continuar usando sua conta.',
+    effective: 'Vigente desde 12 de setembro de 2026',
+    sections: [
+      { icon: 'document-text-outline', title: '1. Aceitação e finalidade', text: 'Ao criar uma conta ou utilizar o Zella, você declara que leu e concorda com estes termos. O aplicativo oferece recursos de apoio, informação, rede de contatos de confiança e acionamento de alertas de emergência.' },
+      { icon: 'alert-circle-outline', title: '2. Limites do serviço de emergência', text: 'O Zella é uma ferramenta complementar e não substitui a Polícia Militar (190), o SAMU (192), os Bombeiros (193) ou outros serviços públicos. Alertas podem sofrer atrasos ou falhas por falta de internet, sinal, bateria, permissões do aparelho ou indisponibilidade de serviços externos.' },
+      { icon: 'person-circle-outline', title: '3. Conta e responsabilidades', text: 'Você deve fornecer dados corretos, manter suas credenciais protegidas, cadastrar apenas contatos autorizados e usar os recursos de SOS de boa-fé. É proibido utilizar o aplicativo para assédio, fraude, ameaças, conteúdo ilícito ou alertas deliberadamente falsos.' },
+      { icon: 'server-outline', title: '4. Dados tratados', text: 'Podemos tratar dados de cadastro e perfil, contatos de emergência, preferências, tokens de notificação, registros de SOS e localização quando você concede permissão e aciona um recurso que a utiliza. O tratamento é limitado às finalidades informadas e à operação, segurança e melhoria do serviço.' },
+      { icon: 'logo-whatsapp', title: '5. Alertas e serviços de terceiros', text: 'Quando você ativa alertas pelo WhatsApp, autoriza o uso do número informado para receber mensagens de emergência. Firebase, Expo, Google e Meta/WhatsApp podem processar dados necessários à entrega de autenticação, armazenamento, notificações, mapas e mensagens, conforme seus próprios termos e políticas.' },
+      { icon: 'shield-checkmark-outline', title: '6. Segurança e conservação', text: 'São adotadas medidas técnicas e administrativas razoáveis para proteger os dados. Nenhum sistema, porém, é totalmente imune a incidentes. As informações são mantidas pelo período necessário ao funcionamento do serviço, ao cumprimento de obrigações legais e à proteção de direitos.' },
+      { icon: 'key-outline', title: '7. Seus direitos e escolhas', text: 'Nos termos da LGPD, você pode solicitar confirmação e acesso aos dados, correção, informação sobre compartilhamentos, portabilidade quando aplicável, eliminação nas hipóteses legais e revogação do consentimento. Permissões do aparelho e a opção de WhatsApp podem ser desativadas a qualquer momento.' },
+      { icon: 'refresh-outline', title: '8. Alterações destes termos', text: 'Este documento pode ser atualizado para refletir mudanças legais, técnicas ou funcionais. Alterações relevantes serão comunicadas no aplicativo e passarão a valer a partir da data indicada na versão atualizada.' },
+    ] as Section[],
+    footer: 'Versão 2.0 • Última atualização: 12 de setembro de 2026',
   },
   en: {
-    titulo: "Privacy",
-    subtitulo: "Privacy Policy",
-    introducao: "Your privacy matters to us. Learn in a transparent way how we look after your data.",
-    secao1Titulo: "Data Collection",
-    secao1Texto: "We collect information such as name, username, and phone number solely for profile customization and secure authentication.",
-    secao2Titulo: "Total Security",
-    secao2Texto: "Your data is encrypted and securely stored using Firebase services, with absolutely no third-party sharing.",
-    secao3Titulo: "Your Consent",
-    secao3Texto: "By using this application, you agree to the storage of the provided data strictly for core system operations.",
-    rodape: "Last updated: June 2026",
+    header: 'Terms & Privacy',
+    eyebrow: 'ZELLA • LEGAL DOCUMENT',
+    title: 'Terms of Use and Privacy Notice',
+    introduction: 'This document explains the rules for using Zella and how personal data required for the service is processed. Please read it before creating or continuing to use your account.',
+    effective: 'Effective as of September 12, 2026',
+    sections: [
+      { icon: 'document-text-outline', title: '1. Acceptance and purpose', text: 'By creating an account or using Zella, you confirm that you have read and accepted these terms. The app provides support resources, information, a trusted-contact network, and emergency alerts.' },
+      { icon: 'alert-circle-outline', title: '2. Emergency service limitations', text: 'Zella is a supplementary tool and does not replace police, ambulance, fire, or other public emergency services. Alerts may be delayed or fail due to connectivity, signal, battery, device permissions, or third-party service availability.' },
+      { icon: 'person-circle-outline', title: '3. Account responsibilities', text: 'You must provide accurate details, protect your credentials, add only authorized contacts, and use SOS features in good faith. Harassment, fraud, threats, unlawful content, and deliberately false alerts are prohibited.' },
+      { icon: 'server-outline', title: '4. Data we process', text: 'We may process account and profile data, emergency contacts, preferences, notification tokens, SOS records, and location when you grant permission and use a feature that requires it. Processing is limited to the stated purposes and the operation, safety, and improvement of the service.' },
+      { icon: 'logo-whatsapp', title: '5. Alerts and third-party services', text: 'When WhatsApp alerts are enabled, you authorize use of the provided number for emergency messages. Firebase, Expo, Google, and Meta/WhatsApp may process data required for authentication, storage, notifications, maps, and message delivery under their own terms and policies.' },
+      { icon: 'shield-checkmark-outline', title: '6. Security and retention', text: 'Reasonable technical and organizational safeguards are used to protect data, but no system is entirely immune to incidents. Information is retained as needed to operate the service, comply with legal obligations, and protect rights.' },
+      { icon: 'key-outline', title: '7. Your rights and choices', text: 'Subject to applicable law, you may request access, correction, information about sharing, portability where applicable, deletion in legally permitted cases, and withdrawal of consent. Device permissions and WhatsApp alerts can be disabled at any time.' },
+      { icon: 'refresh-outline', title: '8. Changes to these terms', text: 'This document may be updated to reflect legal, technical, or product changes. Material changes will be communicated in the app and take effect on the date stated in the updated version.' },
+    ] as Section[],
+    footer: 'Version 2.0 • Last updated: September 12, 2026',
   },
 };
 
 export default function PoliticaPrivacidade() {
   const router = useRouter();
-  const [idioma, setIdioma] = useState<"pt" | "en">("pt");
+  const [language, setLanguage] = useState<'pt' | 'en'>('pt');
 
-  useFocusEffect(
-    useCallback(() => {
-      const carregarIdioma = async () => {
-        try {
-          const salvo = await AsyncStorage.getItem("@zella_idioma");
-          if (salvo === "pt" || salvo === "en") {
-            setIdioma(salvo);
-          }
-        } catch (error) {
-          console.log("Erro ao carregar idioma na Política:", error);
-        }
-      };
-      carregarIdioma();
-    }, [])
-  );
+  useFocusEffect(useCallback(() => {
+    AsyncStorage.getItem('@zella_idioma')
+      .then((saved) => { if (saved === 'pt' || saved === 'en') setLanguage(saved); })
+      .catch((error) => console.log('Erro ao carregar idioma nos Termos:', error));
+  }, []));
 
-  const t = textosPolitica[idioma];
+  const text = content[language];
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFF" />
-
-      {/* HEADER MODERNO */}
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#3D1F2B" />
+        <TouchableOpacity accessibilityLabel={language === 'pt' ? 'Voltar' : 'Go back'} onPress={() => router.back()} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={23} color="#3D1F2B" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{t.titulo}</Text>
-        <View style={{ width: 24 }} />
+        <Text style={styles.headerTitle}>{text.header}</Text>
+        <View style={styles.headerSpacer} />
       </View>
 
-      <ScrollView 
-        showsVerticalScrollIndicator={false} 
-        contentContainerStyle={styles.scrollContent}
-      >
-        {/* INTRODUÇÃO EM DESTAQUE */}
-        <View style={styles.introContainer}>
-          <Text style={styles.mainSubtitle}>{t.subtitulo}</Text>
-          <Text style={styles.introText}>{t.introducao}</Text>
-        </View>
-
-        {/* CARD 1: COLETA */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <View style={styles.iconContainer}>
-              <Ionicons name="document-text-outline" size={20} color="#751935" />
-            </View>
-            <Text style={styles.sectionTitle}>{t.secao1Titulo}</Text>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        <View style={styles.hero}>
+          <View style={styles.documentIcon}><Ionicons name="reader-outline" size={25} color="#751935" /></View>
+          <Text style={styles.eyebrow}>{text.eyebrow}</Text>
+          <Text style={styles.title}>{text.title}</Text>
+          <Text style={styles.introduction}>{text.introduction}</Text>
+          <View style={styles.effectiveBadge}>
+            <Ionicons name="calendar-clear-outline" size={14} color="#751935" />
+            <Text style={styles.effectiveText}>{text.effective}</Text>
           </View>
-          <Text style={styles.paragraph}>{t.secao1Texto}</Text>
         </View>
 
-        {/* CARD 2: SEGURANÇA */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <View style={styles.iconContainer}>
-              <Ionicons name="shield-checkmark-outline" size={20} color="#751935" />
+        {text.sections.map((section) => (
+          <View key={section.title} style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionIcon}><Ionicons name={section.icon} size={19} color="#751935" /></View>
+              <Text style={styles.sectionTitle}>{section.title}</Text>
             </View>
-            <Text style={styles.sectionTitle}>{t.secao2Titulo}</Text>
+            <Text style={styles.paragraph}>{section.text}</Text>
           </View>
-          <Text style={styles.paragraph}>{t.secao2Texto}</Text>
-        </View>
+        ))}
 
-        {/* CARD 3: CONSENTIMENTO */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <View style={styles.iconContainer}>
-              <Ionicons name="checkbox-outline" size={20} color="#751935" />
-            </View>
-            <Text style={styles.sectionTitle}>{t.secao3Titulo}</Text>
-          </View>
-          <Text style={styles.paragraph}>{t.secao3Texto}</Text>
+        <View style={styles.footer}>
+          <Ionicons name="shield-checkmark-outline" size={17} color="#9C7180" />
+          <Text style={styles.footerText}>{text.footer}</Text>
         </View>
-
-        <Text style={styles.footerText}>{t.rodape}</Text>
       </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#FDF9FA",
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 20,
-    backgroundColor: "#FFF",
-    borderBottomWidth: 1,
-    borderColor: "#F3ECEF",
-  },
-  backButton: {
-    padding: 4,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#3D1F2B",
-  },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 25,
-    paddingBottom: 40,
-  },
-  introContainer: {
-    marginBottom: 25,
-    paddingHorizontal: 4,
-  },
-  mainSubtitle: {
-    fontSize: 24,
-    fontWeight: "800",
-    color: "#3D1F2B",
-    marginBottom: 8,
-  },
-  introText: {
-    fontSize: 15,
-    lineHeight: 22,
-    color: "#8E6B79",
-    fontWeight: "500",
-  },
-  card: {
-    backgroundColor: "#FFF",
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: "#F3ECEF",
-    
-    // Sombras leves e modernas
-    elevation: 2,
-    shadowColor: "#751935",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.03,
-    shadowRadius: 8,
-  },
-  cardHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 12,
-    gap: 12,
-  },
-  iconContainer: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: "#F7ECEF",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#3D1F2B",
-  },
-  paragraph: {
-    fontSize: 14,
-    lineHeight: 22,
-    color: "#8E6B79",
-    fontWeight: "500",
-  },
-  footerText: {
-    fontSize: 12,
-    color: "#C3B0B7",
-    textAlign: "center",
-    marginTop: 20,
-    fontWeight: "600",
-    letterSpacing: 0.3,
-  },
+  container: { flex: 1, backgroundColor: '#F8F4F6' },
+  header: { alignItems: 'center', backgroundColor: '#FFFFFF', borderBottomColor: '#EDE3E7', borderBottomWidth: 1, flexDirection: 'row', justifyContent: 'space-between', paddingBottom: 16, paddingHorizontal: 20, paddingTop: 56 },
+  backButton: { alignItems: 'center', backgroundColor: '#F8F1F4', borderRadius: 18, height: 36, justifyContent: 'center', width: 36 },
+  headerTitle: { color: '#3D1F2B', fontSize: 17, fontWeight: '700' },
+  headerSpacer: { width: 36 },
+  scrollContent: { padding: 20, paddingBottom: 46 },
+  hero: { backgroundColor: '#FFFFFF', borderColor: '#EDE3E7', borderRadius: 24, borderWidth: 1, marginBottom: 18, padding: 22 },
+  documentIcon: { alignItems: 'center', backgroundColor: '#F7E9EF', borderRadius: 14, height: 46, justifyContent: 'center', marginBottom: 18, width: 46 },
+  eyebrow: { color: '#9C3569', fontSize: 10, fontWeight: '800', letterSpacing: 1.1 },
+  title: { color: '#2F1E26', fontSize: 25, fontWeight: '800', letterSpacing: -0.4, lineHeight: 31, marginTop: 7 },
+  introduction: { color: '#6F5A64', fontSize: 14, lineHeight: 22, marginTop: 12 },
+  effectiveBadge: { alignItems: 'center', alignSelf: 'flex-start', backgroundColor: '#F8F1F4', borderRadius: 10, flexDirection: 'row', gap: 7, marginTop: 17, paddingHorizontal: 10, paddingVertical: 8 },
+  effectiveText: { color: '#751935', fontSize: 11, fontWeight: '700' },
+  section: { backgroundColor: '#FFFFFF', borderColor: '#EDE3E7', borderRadius: 18, borderWidth: 1, marginBottom: 12, padding: 18 },
+  sectionHeader: { alignItems: 'center', flexDirection: 'row', gap: 11, marginBottom: 11 },
+  sectionIcon: { alignItems: 'center', backgroundColor: '#F8EEF2', borderRadius: 11, height: 36, justifyContent: 'center', width: 36 },
+  sectionTitle: { color: '#3D1F2B', flex: 1, fontSize: 15, fontWeight: '700', lineHeight: 20 },
+  paragraph: { color: '#715E67', fontSize: 13.5, lineHeight: 21 },
+  footer: { alignItems: 'center', flexDirection: 'row', gap: 7, justifyContent: 'center', marginTop: 18 },
+  footerText: { color: '#9C8690', fontSize: 11, fontWeight: '600' },
 });

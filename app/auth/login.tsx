@@ -12,7 +12,6 @@ import React, { useState, useCallback } from 'react';
 
 import {
   ActivityIndicator,
-  Alert,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -31,6 +30,7 @@ import {
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '../../constants/theme';
+import { showAppAlert } from '@/components/app-alert';
 
 // CONFIG GOOGLE
 GoogleSignin.configure({
@@ -121,7 +121,7 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     if (!email || !senha) {
-      Alert.alert(idioma === 'pt' ? 'Aviso' : 'Notice', t.avisoCampos);
+      showAppAlert(idioma === 'pt' ? 'Aviso' : 'Notice', t.avisoCampos);
       return;
     }
 
@@ -137,7 +137,7 @@ export default function LoginScreen() {
       const user = userCredential.user;
 
       if (!user.emailVerified) {
-        Alert.alert(t.titEmailVerificado, t.msgEmailVerificado);
+        showAppAlert(t.titEmailVerificado, t.msgEmailVerificado);
         setLoading(false);
         return; 
       }
@@ -145,7 +145,7 @@ export default function LoginScreen() {
       router.replace('/(tabs)');
 
     } catch (error) {
-      Alert.alert(idioma === 'pt' ? 'Erro' : 'Error', t.errInvalidos);
+      showAppAlert(idioma === 'pt' ? 'Erro' : 'Error', t.errInvalidos);
     } finally {
       setLoading(false);
     }
@@ -153,16 +153,16 @@ export default function LoginScreen() {
 
   const handleEsqueceuSenha = async () => {
     if (!email) {
-      Alert.alert(idioma === 'pt' ? 'Aviso' : 'Notice', t.avisoReset);
+      showAppAlert(idioma === 'pt' ? 'Aviso' : 'Notice', t.avisoReset);
       return;
     }
 
     try {
       await sendPasswordResetEmail(auth, email.trim());
-      Alert.alert(t.titReset, t.msgReset);
+      showAppAlert(t.titReset, t.msgReset);
     } catch (error: any) {
       console.log(error);
-      Alert.alert(idioma === 'pt' ? 'Erro' : 'Error', t.errReset);
+      showAppAlert(idioma === 'pt' ? 'Erro' : 'Error', t.errReset);
     }
   };
 
@@ -174,7 +174,7 @@ export default function LoginScreen() {
       const idToken = userInfo.data?.idToken;
 
       if (!idToken) {
-        Alert.alert(idioma === 'pt' ? 'Erro' : 'Error', t.errGoogleToken);
+        showAppAlert(idioma === 'pt' ? 'Erro' : 'Error', t.errGoogleToken);
         return;
       }
 
@@ -205,7 +205,7 @@ export default function LoginScreen() {
         console.log('Login cancelado');
       } else {
         console.log(error);
-        Alert.alert(idioma === 'pt' ? 'Erro' : 'Error', t.errGoogleGeral);
+        showAppAlert(idioma === 'pt' ? 'Erro' : 'Error', t.errGoogleGeral);
       }
     } finally {
       setGoogleLoading(false);

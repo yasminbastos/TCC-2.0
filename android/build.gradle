@@ -23,3 +23,20 @@ allprojects {
 
 apply plugin: "expo-root-project"
 apply plugin: "com.facebook.react.rootproject"
+
+// Windows may shorten clang++.exe to CLANG_~1.EXE when the SDK path
+// contains spaces. Explicitly keep C++ driver mode when linking native modules.
+if (System.getProperty('os.name').toLowerCase().contains('windows')) {
+  subprojects { subproject ->
+    subproject.plugins.withId('com.android.library') {
+      subproject.android.defaultConfig.externalNativeBuild.cmake.arguments(
+        '-DCMAKE_SHARED_LINKER_FLAGS=--driver-mode=g++'
+      )
+    }
+    subproject.plugins.withId('com.android.application') {
+      subproject.android.defaultConfig.externalNativeBuild.cmake.arguments(
+        '-DCMAKE_SHARED_LINKER_FLAGS=--driver-mode=g++'
+      )
+    }
+  }
+}

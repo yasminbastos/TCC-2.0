@@ -5,7 +5,6 @@ import { doc, getDoc, setDoc } from "firebase/firestore";
 import React, { useEffect, useState, useCallback } from "react";
 import {
     ActivityIndicator,
-    Alert,
     KeyboardAvoidingView,
     Platform,
     ScrollView,
@@ -18,6 +17,7 @@ import {
 } from "react-native";
 import { auth, db } from "../../config/firebase";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { showAppAlert } from '@/components/app-alert';
 
 // Avatares personalizados
 const AVATARES = [
@@ -40,9 +40,17 @@ const textosMeuPerfil = {
     placeholderUsername: "@seu_user",
     labelTelefone: "Telefone / Celular",
     placeholderTelefone: "(11) 99999-9999",
-    labelWhatsappSos: "Receber alertas SOS pelo WhatsApp",
-    ajudaWhatsappSos: "Autorize o Zella a enviar mensagens automáticas de emergência para este número.",
-    telefoneObrigatorio: "Informe seu telefone com DDD antes de ativar os alertas pelo WhatsApp.",
+    labelWhatsappSos: "Alertas SOS pelo WhatsApp",
+    ajudaWhatsappSos: "Receba mensagens de emergência de pessoas que adicionaram você à rede de segurança.",
+    telefoneObrigatorio: "Informe um celular válido com DDD antes de ativar os alertas pelo WhatsApp.",
+    whatsappAtivo: "Ativado",
+    whatsappInativo: "Desativado",
+    whatsappSalvando: "Salvando...",
+    whatsappAtivadoTitulo: "WhatsApp ativado",
+    whatsappAtivadoMsg: "Sua preferência e seu número foram salvos. Você poderá receber alertas SOS de seus contatos de confiança.",
+    whatsappDesativadoTitulo: "WhatsApp desativado",
+    whatsappDesativadoMsg: "Você não receberá novos alertas SOS por este canal.",
+    whatsappErro: "Não foi possível atualizar a preferência do WhatsApp.",
     labelEmail: "E-mail da Conta",
     botaoSalvar: "SALVAR ALTERAÇÕES",
     botaoSalvando: "SALVANDO...",
@@ -63,9 +71,17 @@ const textosMeuPerfil = {
     placeholderUsername: "@your_user",
     labelTelefone: "Phone Number",
     placeholderTelefone: "+1 (11) 99999-9999",
-    labelWhatsappSos: "Receive SOS alerts on WhatsApp",
-    ajudaWhatsappSos: "Allow Zella to send automatic emergency messages to this number.",
-    telefoneObrigatorio: "Enter your phone number before enabling WhatsApp alerts.",
+    labelWhatsappSos: "WhatsApp SOS alerts",
+    ajudaWhatsappSos: "Receive emergency messages from people who added you to their safety network.",
+    telefoneObrigatorio: "Enter a valid mobile number with area code before enabling WhatsApp alerts.",
+    whatsappAtivo: "Enabled",
+    whatsappInativo: "Disabled",
+    whatsappSalvando: "Saving...",
+    whatsappAtivadoTitulo: "WhatsApp enabled",
+    whatsappAtivadoMsg: "Your preference and number were saved. You can receive SOS alerts from your trusted contacts.",
+    whatsappDesativadoTitulo: "WhatsApp disabled",
+    whatsappDesativadoMsg: "You will no longer receive new SOS alerts through this channel.",
+    whatsappErro: "Could not update the WhatsApp preference.",
     labelEmail: "Account Email",
     botaoSalvar: "SAVE CHANGES",
     botaoSalvando: "SAVING...",
@@ -91,7 +107,7 @@ export default function MeuPerfil() {
   const [username, setUsername] = useState("");
   const [telefone, setTelefone] = useState("");
   const [whatsappSosEnabled, setWhatsappSosEnabled] = useState(false);
-  const [whatsappSosDirty, setWhatsappSosDirty] = useState(false);
+  const [savingWhatsapp, setSavingWhatsapp] = useState(false);
   const [avatarSelecionado, setAvatarSelecionado] = useState("person");
 
   // Estados de controle da interface
@@ -145,14 +161,61 @@ export default function MeuPerfil() {
 
   const t = textosMeuPerfil[idioma];
 
+  const normalizeWhatsAppPhone = (value: string) => {
+    const trimmed = value.trim();
+    const digits = trimmed.replace(/\D/g, '');
+    if (!digits) return null;
+
+    const normalized = trimmed.startsWith('+') || digits.startsWith('55')
+      ? digits
+      : digits.length === 10 || digits.length === 11
+        ? `55${digits}`
+        : digits;
+
+    return normalized.length >= 10 && normalized.length <= 15 ? `+${normalized}` : null;
+  };
+
+  const handleWhatsappChange = async (enabled: boolean) => {
+    if (!user || savingWhatsapp) return;
+
+    const normalizedPhone = normalizeWhatsAppPhone(telefone);
+    if (enabled && !normalizedPhone) {
+      setIsEditingTelefone(true);
+      showAppAlert(t.aviso, t.telefoneObrigatorio);
+      return;
+    }
+
+    setSavingWhatsapp(true);
+    try {
+      await setDoc(doc(db, 'usuarios', user.uid), {
+        whatsappSosEnabled: enabled,
+        ...(normalizedPhone ? { telefone: normalizedPhone } : {}),
+        updatedAt: new Date(),
+      }, { merge: true });
+
+      if (normalizedPhone) setTelefone(normalizedPhone);
+      setWhatsappSosEnabled(enabled);
+      showAppAlert(
+        enabled ? t.whatsappAtivadoTitulo : t.whatsappDesativadoTitulo,
+        enabled ? t.whatsappAtivadoMsg : t.whatsappDesativadoMsg
+      );
+    } catch (error) {
+      console.log('Erro ao atualizar alertas do WhatsApp:', error);
+      showAppAlert(t.erro, t.whatsappErro);
+    } finally {
+      setSavingWhatsapp(false);
+    }
+  };
+
   const handleSalvar = async () => {
     if (!user) return;
     if (!nome.trim()) {
-      Alert.alert(t.aviso, t.avisoNomeVazio);
+      showAppAlert(t.aviso, t.avisoNomeVazio);
       return;
     }
-    if (whatsappSosEnabled && !telefone.trim()) {
-      Alert.alert(t.aviso, t.telefoneObrigatorio);
+    const normalizedPhone = normalizeWhatsAppPhone(telefone);
+    if (whatsappSosEnabled && !normalizedPhone) {
+      showAppAlert(t.aviso, t.telefoneObrigatorio);
       return;
     }
 
@@ -164,7 +227,7 @@ export default function MeuPerfil() {
       await setDoc(docRef, {
         nome: nome.trim(),
         username: username.trim(),
-        telefone: telefone.trim(),
+        telefone: normalizedPhone ?? telefone.trim(),
         whatsappSosEnabled,
         avatarId: avatarSelecionado,
         email: user.email,
@@ -174,12 +237,12 @@ export default function MeuPerfil() {
       setIsEditingNome(false);
       setIsEditingUsername(false);
       setIsEditingTelefone(false);
-      setWhatsappSosDirty(false);
+      if (normalizedPhone) setTelefone(normalizedPhone);
 
-      Alert.alert(t.sucesso, t.sucessoMsg);
+      showAppAlert(t.sucesso, t.sucessoMsg);
     } catch (error) {
       console.log("Erro ao salvar dados no Firestore:", error);
-      Alert.alert(t.erro, t.erroMsg);
+      showAppAlert(t.erro, t.erroMsg);
     } finally {
       setLoading(false);
     }
@@ -302,18 +365,29 @@ export default function MeuPerfil() {
           </View>
 
           <View style={styles.whatsappConsentRow}>
+            <View style={styles.whatsappIconBox}>
+              <Ionicons name="logo-whatsapp" size={24} color="#16805B" />
+            </View>
             <View style={styles.whatsappConsentText}>
-              <Text style={styles.label}>{t.labelWhatsappSos}</Text>
+              <Text style={styles.whatsappTitle}>{t.labelWhatsappSos}</Text>
               <Text style={styles.whatsappHelp}>{t.ajudaWhatsappSos}</Text>
+              <View style={[styles.whatsappStatus, whatsappSosEnabled && styles.whatsappStatusActive]}>
+                <View style={[styles.whatsappStatusDot, whatsappSosEnabled && styles.whatsappStatusDotActive]} />
+                <Text style={[styles.whatsappStatusText, whatsappSosEnabled && styles.whatsappStatusTextActive]}>
+                  {savingWhatsapp
+                    ? t.whatsappSalvando
+                    : whatsappSosEnabled
+                      ? t.whatsappAtivo
+                      : t.whatsappInativo}
+                </Text>
+              </View>
             </View>
             <Switch
+              disabled={savingWhatsapp}
               value={whatsappSosEnabled}
-              onValueChange={(value) => {
-                setWhatsappSosEnabled(value);
-                setWhatsappSosDirty(true);
-              }}
-              trackColor={{ false: '#D8CDD1', true: '#B75A75' }}
-              thumbColor={whatsappSosEnabled ? '#751935' : '#F5F5F5'}
+              onValueChange={handleWhatsappChange}
+              trackColor={{ false: '#D8CDD1', true: '#79CFA9' }}
+              thumbColor={whatsappSosEnabled ? '#16805B' : '#F5F5F5'}
             />
           </View>
 
@@ -329,7 +403,7 @@ export default function MeuPerfil() {
           </View>
 
           {/* BOTÃO SALVAR */}
-          {(isEditingNome || isEditingUsername || isEditingTelefone || whatsappSosDirty || avatarSelecionado !== "person") && (
+          {(isEditingNome || isEditingUsername || isEditingTelefone || avatarSelecionado !== "person") && (
             <TouchableOpacity style={styles.button} onPress={handleSalvar} disabled={loading}>
               <Text style={styles.buttonText}>
                 {loading ? t.botaoSalvando : t.botaoSalvar}
@@ -464,21 +538,70 @@ const styles = StyleSheet.create({
   whatsappConsentRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 16,
+    gap: 12,
     backgroundColor: "#FFF",
     borderRadius: 16,
     borderWidth: 1,
     borderColor: "#EFEFEF",
     padding: 16,
+    shadowColor: '#351523',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  whatsappIconBox: {
+    alignItems: 'center',
+    backgroundColor: '#E8F7F0',
+    borderRadius: 14,
+    height: 44,
+    justifyContent: 'center',
+    width: 44,
   },
   whatsappConsentText: {
     flex: 1,
-    gap: 10,
+  },
+  whatsappTitle: {
+    color: '#3D1F2B',
+    fontSize: 14,
+    fontWeight: '700',
   },
   whatsappHelp: {
     color: "#735A64",
     fontSize: 12,
     lineHeight: 17,
+    marginTop: 5,
+  },
+  whatsappStatus: {
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: '#F2EEF0',
+    borderRadius: 9,
+    flexDirection: 'row',
+    gap: 5,
+    marginTop: 9,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+  },
+  whatsappStatusActive: {
+    backgroundColor: '#E8F7F0',
+  },
+  whatsappStatusDot: {
+    backgroundColor: '#A8989F',
+    borderRadius: 3,
+    height: 6,
+    width: 6,
+  },
+  whatsappStatusDotActive: {
+    backgroundColor: '#16805B',
+  },
+  whatsappStatusText: {
+    color: '#77656D',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  whatsappStatusTextActive: {
+    color: '#16805B',
   },
   button: {
     backgroundColor: "#751935",

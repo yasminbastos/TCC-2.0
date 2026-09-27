@@ -22,6 +22,10 @@ plugins {
   id("expo-autolinking-settings")
 }
 
+// Define a raiz explicitamente para que o autolinking funcione também quando
+// o projeto é compilado por uma unidade curta do Windows (por exemplo, Z:).
+expoAutolinking.projectRoot = new File(rootDir, "..")
+
 extensions.configure(com.facebook.react.ReactSettingsExtension) { ex ->
   if (System.getenv('EXPO_USE_COMMUNITY_AUTOLINKING') == '1') {
     ex.autolinkLibrariesFromCommand()
