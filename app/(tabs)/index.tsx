@@ -3,8 +3,17 @@ import * as Linking from 'expo-linking';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { collection, doc, getDoc, limit, onSnapshot, orderBy, query } from 'firebase/firestore';
 import React, { useCallback, useEffect, useState } from 'react';
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { 
+  Image, 
+  ScrollView, 
+  StyleSheet, 
+  Text, 
+  TouchableOpacity, 
+  View, 
+  Modal, 
+  ActivityIndicator } from 'react-native';
 import { auth, db } from '../../config/firebase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const womanPerfil = require('../../assets/images/woman.png');
 
@@ -29,6 +38,8 @@ interface NoticiaIA {
 
 const HomeScreen = () => {
   const [nomeUsuario, setNomeUsuario] = useState('');
+  const [tutorialVisivel, setTutorialVisivel] = useState(false);
+  const [verificandoTutorial, setVerificandoTutorial] = useState(true);
   const [avatarId, setAvatarId] = useState('person');
   const [saudacao, setSaudacao] = useState('Olá');
   const [listaContatos, setListaContatos] = useState<any[]>([]);
@@ -41,6 +52,44 @@ const HomeScreen = () => {
     if (hora >= 5 && hora < 12) return 'Bom dia';
     if (hora >= 12 && hora < 18) return 'Boa tarde';
     return 'Boa noite';
+  };
+
+    useEffect(() => {
+    const verificarTutorial = async () => {
+      try {
+        const naoMostrar = await AsyncStorage.getItem('@zella:naoMostrarTutorial');
+        setTutorialVisivel(naoMostrar !== 'sim');
+      } catch (error) {
+        console.log('Erro ao verificar preferência do tutorial:', error);
+        setTutorialVisivel(true);
+      } finally {
+        setVerificandoTutorial(false);
+      }
+    };
+
+    verificarTutorial();
+  }, []);
+
+  const fecharTutorial = () => {
+    setTutorialVisivel(false);
+  };
+
+  const naoMostrarTutorialNovamente = async () => {
+    try {
+      await AsyncStorage.setItem('@zella:naoMostrarTutorial', 'sim');
+    } catch (error) {
+      console.log('Erro ao salvar preferência do tutorial:', error);
+    } finally {
+      setTutorialVisivel(false);
+    }
+  };
+
+  const assistirTutorial = async () => {
+    try {
+      await Linking.openURL('https://youtube.com/shorts/9d1UnmcSgxQ?si=uSOMBgdvxT3hEqZZ');
+    } catch (error) {
+      console.log('Erro ao abrir o tutorial:', error);
+    }
   };
 
   // Listener em tempo real para as notícias
@@ -230,10 +279,74 @@ const HomeScreen = () => {
             </View>
           )}
         </ScrollView>
+      
       </ScrollView>
+
+      <Modal
+        visible={tutorialVisivel && !verificandoTutorial}
+        transparent
+        animationType="fade"
+        onRequestClose={fecharTutorial}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <TouchableOpacity
+              style={styles.modalClose}
+              onPress={fecharTutorial}
+              accessibilityLabel="Fechar tutorial"
+              accessibilityRole="button"
+            >
+              <Ionicons name="close" size={24} color="#751935" />
+            </TouchableOpacity>
+
+            <View style={styles.modalIconCircle}>
+              <Ionicons
+                name="play-circle-outline"
+                size={42}
+                color="#751935"
+              />
+            </View>
+
+            <Text style={styles.modalTitle}>
+              Bem-vinda à Zella!
+            </Text>
+
+            <Text style={styles.modalDescription}>
+              Preparamos um tutorial rápido para ajudar você a conhecer o
+              aplicativo e aprender a utilizar seus recursos de segurança.
+            </Text>
+
+            <TouchableOpacity
+              style={styles.modalPrimaryButton}
+              onPress={assistirTutorial}
+              accessibilityRole="button"
+            >
+              <Ionicons name="logo-youtube" size={21} color="#FFFFFF" />
+              <Text style={styles.modalPrimaryButtonText}>
+                Assistir ao tutorial
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.modalSecondaryButton}
+              onPress={naoMostrarTutorialNovamente}
+              accessibilityRole="button"
+            >
+              <Text style={styles.modalSecondaryButtonText}>
+                Não mostrar novamente
+              </Text>
+            </TouchableOpacity>
+
+            <Text style={styles.modalFooter}>
+              Você pode fechar esta janela e acessar o aplicativo normalmente.
+            </Text>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
+
 
 export default HomeScreen;
 
@@ -273,5 +386,97 @@ const styles = StyleSheet.create({
   noticiaTitle: { fontSize: 16, fontWeight: 'bold', color: '#6b1027ff', marginBottom: 6, lineHeight: 20 },
   noticiaSummary: { fontSize: 13, color: '#555555ff', lineHeight: 18 },
   saibaMaisBotao: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 12, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#951136ff' },
-  saibaMaisTexto: { fontSize: 12, fontWeight: '700', color: '#8c1f40ff' }
+  saibaMaisTexto: { fontSize: 12, fontWeight: '700', color: '#8c1f40ff' },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(32, 5, 17, 0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 380,
+    backgroundColor: '#FFF9FB',
+    borderRadius: 26,
+    paddingHorizontal: 24,
+    paddingTop: 30,
+    paddingBottom: 24,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#F0C4CF',
+    elevation: 8,
+  },
+  modalClose: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1,
+  },
+  modalIconCircle: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: '#FBE5EC',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 23,
+    fontWeight: '800',
+    color: '#65132B',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  modalDescription: {
+    fontSize: 14,
+    lineHeight: 21,
+    color: '#5B3A43',
+    textAlign: 'center',
+    marginBottom: 22,
+  },
+  modalPrimaryButton: {
+    width: '100%',
+    minHeight: 50,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: '#751935',
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 13,
+  },
+  modalPrimaryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  modalSecondaryButton: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    marginTop: 6,
+  },
+  modalSecondaryButtonText: {
+    color: '#751935',
+    fontSize: 14,
+    fontWeight: '700',
+    textDecorationLine: 'underline',
+  },
+  modalFooter: {
+    color: '#80616A',
+    fontSize: 11,
+    lineHeight: 16,
+    textAlign: 'center',
+    marginTop: 6,
+  }
 });

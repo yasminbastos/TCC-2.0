@@ -4,20 +4,19 @@ import { updateProfile } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import React, { useEffect, useState, useCallback } from "react";
 import {
-    ActivityIndicator,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    Switch,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { auth, db } from "../../config/firebase";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { showAppAlert } from '@/components/app-alert';
+import { showAppAlert } from "@/components/app-alert";
 
 // Avatares personalizados
 const AVATARES = [
@@ -40,17 +39,6 @@ const textosMeuPerfil = {
     placeholderUsername: "@seu_user",
     labelTelefone: "Telefone / Celular",
     placeholderTelefone: "(11) 99999-9999",
-    labelWhatsappSos: "Alertas SOS pelo WhatsApp",
-    ajudaWhatsappSos: "Receba mensagens de emergência de pessoas que adicionaram você à rede de segurança.",
-    telefoneObrigatorio: "Informe um celular válido com DDD antes de ativar os alertas pelo WhatsApp.",
-    whatsappAtivo: "Ativado",
-    whatsappInativo: "Desativado",
-    whatsappSalvando: "Salvando...",
-    whatsappAtivadoTitulo: "WhatsApp ativado",
-    whatsappAtivadoMsg: "Sua preferência e seu número foram salvos. Você poderá receber alertas SOS de seus contatos de confiança.",
-    whatsappDesativadoTitulo: "WhatsApp desativado",
-    whatsappDesativadoMsg: "Você não receberá novos alertas SOS por este canal.",
-    whatsappErro: "Não foi possível atualizar a preferência do WhatsApp.",
     labelEmail: "E-mail da Conta",
     botaoSalvar: "SALVAR ALTERAÇÕES",
     botaoSalvando: "SALVANDO...",
@@ -71,17 +59,6 @@ const textosMeuPerfil = {
     placeholderUsername: "@your_user",
     labelTelefone: "Phone Number",
     placeholderTelefone: "+1 (11) 99999-9999",
-    labelWhatsappSos: "WhatsApp SOS alerts",
-    ajudaWhatsappSos: "Receive emergency messages from people who added you to their safety network.",
-    telefoneObrigatorio: "Enter a valid mobile number with area code before enabling WhatsApp alerts.",
-    whatsappAtivo: "Enabled",
-    whatsappInativo: "Disabled",
-    whatsappSalvando: "Saving...",
-    whatsappAtivadoTitulo: "WhatsApp enabled",
-    whatsappAtivadoMsg: "Your preference and number were saved. You can receive SOS alerts from your trusted contacts.",
-    whatsappDesativadoTitulo: "WhatsApp disabled",
-    whatsappDesativadoMsg: "You will no longer receive new SOS alerts through this channel.",
-    whatsappErro: "Could not update the WhatsApp preference.",
     labelEmail: "Account Email",
     botaoSalvar: "SAVE CHANGES",
     botaoSalvando: "SAVING...",
@@ -106,8 +83,6 @@ export default function MeuPerfil() {
   const [nome, setNome] = useState(user?.displayName || "");
   const [username, setUsername] = useState("");
   const [telefone, setTelefone] = useState("");
-  const [whatsappSosEnabled, setWhatsappSosEnabled] = useState(false);
-  const [savingWhatsapp, setSavingWhatsapp] = useState(false);
   const [avatarSelecionado, setAvatarSelecionado] = useState("person");
 
   // Estados de controle da interface
@@ -117,7 +92,7 @@ export default function MeuPerfil() {
   const [loading, setLoading] = useState(false);
   const [loadingDados, setLoadingDados] = useState(true);
 
-  // Carrega o idioma de forma reativa quando a tela ganha foco
+  // Carrega o idioma quando a tela ganha foco
   useFocusEffect(
     useCallback(() => {
       const carregarIdioma = async () => {
@@ -130,23 +105,28 @@ export default function MeuPerfil() {
           console.log("Erro ao carregar idioma no Meu Perfil:", error);
         }
       };
+
       carregarIdioma();
     }, [])
   );
 
-  // Busca os dados adicionais salvos no Firestore ao abrir a tela
+  // Busca os dados adicionais salvos no Firestore
   useEffect(() => {
     async function carregarDadosPerfil() {
-      if (!user) return;
+      if (!user) {
+        setLoadingDados(false);
+        return;
+      }
+
       try {
         const docRef = doc(db, "usuarios", user.uid);
         const docSnap = await getDoc(docRef);
 
         if (docSnap.exists()) {
           const dados = docSnap.data();
+
           if (dados.username) setUsername(dados.username);
           if (dados.telefone) setTelefone(dados.telefone);
-          setWhatsappSosEnabled(dados.whatsappSosEnabled === true);
           if (dados.avatarId) setAvatarSelecionado(dados.avatarId);
         }
       } catch (error) {
@@ -161,83 +141,39 @@ export default function MeuPerfil() {
 
   const t = textosMeuPerfil[idioma];
 
-  const normalizeWhatsAppPhone = (value: string) => {
-    const trimmed = value.trim();
-    const digits = trimmed.replace(/\D/g, '');
-    if (!digits) return null;
-
-    const normalized = trimmed.startsWith('+') || digits.startsWith('55')
-      ? digits
-      : digits.length === 10 || digits.length === 11
-        ? `55${digits}`
-        : digits;
-
-    return normalized.length >= 10 && normalized.length <= 15 ? `+${normalized}` : null;
-  };
-
-  const handleWhatsappChange = async (enabled: boolean) => {
-    if (!user || savingWhatsapp) return;
-
-    const normalizedPhone = normalizeWhatsAppPhone(telefone);
-    if (enabled && !normalizedPhone) {
-      setIsEditingTelefone(true);
-      showAppAlert(t.aviso, t.telefoneObrigatorio);
-      return;
-    }
-
-    setSavingWhatsapp(true);
-    try {
-      await setDoc(doc(db, 'usuarios', user.uid), {
-        whatsappSosEnabled: enabled,
-        ...(normalizedPhone ? { telefone: normalizedPhone } : {}),
-        updatedAt: new Date(),
-      }, { merge: true });
-
-      if (normalizedPhone) setTelefone(normalizedPhone);
-      setWhatsappSosEnabled(enabled);
-      showAppAlert(
-        enabled ? t.whatsappAtivadoTitulo : t.whatsappDesativadoTitulo,
-        enabled ? t.whatsappAtivadoMsg : t.whatsappDesativadoMsg
-      );
-    } catch (error) {
-      console.log('Erro ao atualizar alertas do WhatsApp:', error);
-      showAppAlert(t.erro, t.whatsappErro);
-    } finally {
-      setSavingWhatsapp(false);
-    }
-  };
-
   const handleSalvar = async () => {
     if (!user) return;
+
     if (!nome.trim()) {
       showAppAlert(t.aviso, t.avisoNomeVazio);
       return;
     }
-    const normalizedPhone = normalizeWhatsAppPhone(telefone);
-    if (whatsappSosEnabled && !normalizedPhone) {
-      showAppAlert(t.aviso, t.telefoneObrigatorio);
-      return;
-    }
 
     setLoading(true);
+
     try {
-      await updateProfile(user, { displayName: nome.trim() });
-      
+      await updateProfile(user, {
+        displayName: nome.trim(),
+      });
+
       const docRef = doc(db, "usuarios", user.uid);
-      await setDoc(docRef, {
-        nome: nome.trim(),
-        username: username.trim(),
-        telefone: normalizedPhone ?? telefone.trim(),
-        whatsappSosEnabled,
-        avatarId: avatarSelecionado,
-        email: user.email,
-        updatedAt: new Date()
-      }, { merge: true });
+
+      await setDoc(
+        docRef,
+        {
+          nome: nome.trim(),
+          username: username.trim(),
+          telefone: telefone.trim(),
+          avatarId: avatarSelecionado,
+          email: user.email,
+          updatedAt: new Date(),
+        },
+        { merge: true }
+      );
 
       setIsEditingNome(false);
       setIsEditingUsername(false);
       setIsEditingTelefone(false);
-      if (normalizedPhone) setTelefone(normalizedPhone);
 
       showAppAlert(t.sucesso, t.sucessoMsg);
     } catch (error) {
@@ -248,7 +184,8 @@ export default function MeuPerfil() {
     }
   };
 
-  const currentAvatar = AVATARES.find(a => a.id === avatarSelecionado) || AVATARES[0];
+  const currentAvatar =
+    AVATARES.find((a) => a.id === avatarSelecionado) || AVATARES[0];
 
   if (loadingDados) {
     return (
@@ -264,48 +201,78 @@ export default function MeuPerfil() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={styles.container}
     >
-      {/* HEADER DE VOLTAR */}
+      {/* Cabeçalho */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={styles.backButton}
+        >
           <Ionicons name="arrow-back" size={24} color="#3D1F2B" />
         </TouchableOpacity>
+
         <Text style={styles.headerTitle}>{t.titulo}</Text>
+
         <View style={{ width: 24 }} />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        
-        {/* EXIBIÇÃO DO AVATAR ATUAL */}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        {/* Avatar atual */}
         <View style={styles.avatarSection}>
-          {/* Borda vinho (#751935) idêntica à tela principal de perfil */}
-          <View style={[styles.avatarPlaceholder, { borderColor: "#751935" }]}>
-            <Ionicons name={currentAvatar.icon as any} size={70} color={currentAvatar.color} />
+          <View
+            style={[
+              styles.avatarPlaceholder,
+              { borderColor: "#751935" },
+            ]}
+          >
+            <Ionicons
+              name={currentAvatar.icon as any}
+              size={70}
+              color={currentAvatar.color}
+            />
           </View>
-          <Text style={styles.avatarInstruction}>{t.instrucaoAvatar}</Text>
-          
-          {/* SELETOR DE AVATARES DISPONÍVEIS */}
+
+          <Text style={styles.avatarInstruction}>
+            {t.instrucaoAvatar}
+          </Text>
+
+          {/* Seletor de avatares */}
           <View style={styles.avatarList}>
             {AVATARES.map((item) => (
               <TouchableOpacity
                 key={item.id}
                 style={[
                   styles.avatarOption,
-                  avatarSelecionado === item.id && { backgroundColor: "#75193515", borderColor: "#751935" }
+                  avatarSelecionado === item.id && {
+                    backgroundColor: "#75193515",
+                    borderColor: "#751935",
+                  },
                 ]}
                 onPress={() => setAvatarSelecionado(item.id)}
               >
-                <Ionicons name={item.icon as any} size={26} color={item.color} />
+                <Ionicons
+                  name={item.icon as any}
+                  size={26}
+                  color={item.color}
+                />
               </TouchableOpacity>
             ))}
           </View>
         </View>
 
-        {/* CAMPOS DO FORMULÁRIO */}
+        {/* Campos do formulário */}
         <View style={styles.form}>
-          
-          {/* NOME COMPLETO */}
+          {/* Nome completo */}
           <Text style={styles.label}>{t.labelNome}</Text>
-          <View style={[styles.inputWrapper, !isEditingNome && styles.disabledInput]}>
+
+          <View
+            style={[
+              styles.inputWrapper,
+              !isEditingNome && styles.disabledInput,
+            ]}
+          >
             <TextInput
               style={styles.input}
               value={nome}
@@ -314,18 +281,31 @@ export default function MeuPerfil() {
               placeholder={t.placeholderNome}
               placeholderTextColor="#999"
             />
-            <TouchableOpacity onPress={() => setIsEditingNome(!isEditingNome)}>
+
+            <TouchableOpacity
+              onPress={() => setIsEditingNome(!isEditingNome)}
+            >
               <Ionicons
-                name={isEditingNome ? "checkmark-circle" : "pencil-sharp"}
+                name={
+                  isEditingNome
+                    ? "checkmark-circle"
+                    : "pencil-sharp"
+                }
                 size={20}
                 color="#9c3569"
               />
             </TouchableOpacity>
           </View>
 
-          {/* NOME DE USUÁRIO (@USERNAME) */}
+          {/* Nome de usuário */}
           <Text style={styles.label}>{t.labelUsername}</Text>
-          <View style={[styles.inputWrapper, !isEditingUsername && styles.disabledInput]}>
+
+          <View
+            style={[
+              styles.inputWrapper,
+              !isEditingUsername && styles.disabledInput,
+            ]}
+          >
             <TextInput
               style={styles.input}
               value={username}
@@ -334,18 +314,33 @@ export default function MeuPerfil() {
               placeholder={t.placeholderUsername}
               placeholderTextColor="#999"
             />
-            <TouchableOpacity onPress={() => setIsEditingUsername(!isEditingUsername)}>
+
+            <TouchableOpacity
+              onPress={() =>
+                setIsEditingUsername(!isEditingUsername)
+              }
+            >
               <Ionicons
-                name={isEditingUsername ? "checkmark-circle" : "pencil-sharp"}
+                name={
+                  isEditingUsername
+                    ? "checkmark-circle"
+                    : "pencil-sharp"
+                }
                 size={20}
                 color="#9c3569"
               />
             </TouchableOpacity>
           </View>
 
-          {/* TELEFONE */}
+          {/* Telefone */}
           <Text style={styles.label}>{t.labelTelefone}</Text>
-          <View style={[styles.inputWrapper, !isEditingTelefone && styles.disabledInput]}>
+
+          <View
+            style={[
+              styles.inputWrapper,
+              !isEditingTelefone && styles.disabledInput,
+            ]}
+          >
             <TextInput
               style={styles.input}
               value={telefone}
@@ -355,62 +350,61 @@ export default function MeuPerfil() {
               placeholder={t.placeholderTelefone}
               placeholderTextColor="#999"
             />
-            <TouchableOpacity onPress={() => setIsEditingTelefone(!isEditingTelefone)}>
+
+            <TouchableOpacity
+              onPress={() =>
+                setIsEditingTelefone(!isEditingTelefone)
+              }
+            >
               <Ionicons
-                name={isEditingTelefone ? "checkmark-circle" : "pencil-sharp"}
+                name={
+                  isEditingTelefone
+                    ? "checkmark-circle"
+                    : "pencil-sharp"
+                }
                 size={20}
                 color="#9c3569"
               />
             </TouchableOpacity>
           </View>
 
-          <View style={styles.whatsappConsentRow}>
-            <View style={styles.whatsappIconBox}>
-              <Ionicons name="logo-whatsapp" size={24} color="#16805B" />
-            </View>
-            <View style={styles.whatsappConsentText}>
-              <Text style={styles.whatsappTitle}>{t.labelWhatsappSos}</Text>
-              <Text style={styles.whatsappHelp}>{t.ajudaWhatsappSos}</Text>
-              <View style={[styles.whatsappStatus, whatsappSosEnabled && styles.whatsappStatusActive]}>
-                <View style={[styles.whatsappStatusDot, whatsappSosEnabled && styles.whatsappStatusDotActive]} />
-                <Text style={[styles.whatsappStatusText, whatsappSosEnabled && styles.whatsappStatusTextActive]}>
-                  {savingWhatsapp
-                    ? t.whatsappSalvando
-                    : whatsappSosEnabled
-                      ? t.whatsappAtivo
-                      : t.whatsappInativo}
-                </Text>
-              </View>
-            </View>
-            <Switch
-              disabled={savingWhatsapp}
-              value={whatsappSosEnabled}
-              onValueChange={handleWhatsappChange}
-              trackColor={{ false: '#D8CDD1', true: '#79CFA9' }}
-              thumbColor={whatsappSosEnabled ? '#16805B' : '#F5F5F5'}
-            />
-          </View>
-
-          {/* EMAIL (SEMPRE BLOQUEADO) */}
+          {/* E-mail (sempre bloqueado) */}
           <Text style={styles.label}>{t.labelEmail}</Text>
-          <View style={[styles.inputWrapper, styles.disabledInput]}>
+
+          <View
+            style={[
+              styles.inputWrapper,
+              styles.disabledInput,
+            ]}
+          >
             <TextInput
               style={[styles.input, { color: "#888" }]}
               value={user?.email || "email@exemplo.com"}
               editable={false}
             />
-            <Ionicons name="lock-closed-outline" size={18} color="#BBB" />
+
+            <Ionicons
+              name="lock-closed-outline"
+              size={18}
+              color="#BBB"
+            />
           </View>
 
-          {/* BOTÃO SALVAR */}
-          {(isEditingNome || isEditingUsername || isEditingTelefone || avatarSelecionado !== "person") && (
-            <TouchableOpacity style={styles.button} onPress={handleSalvar} disabled={loading}>
+          {/* Botão salvar */}
+          {(isEditingNome ||
+            isEditingUsername ||
+            isEditingTelefone ||
+            avatarSelecionado !== "person") && (
+            <TouchableOpacity
+              style={styles.button}
+              onPress={handleSalvar}
+              disabled={loading}
+            >
               <Text style={styles.buttonText}>
                 {loading ? t.botaoSalvando : t.botaoSalvar}
               </Text>
             </TouchableOpacity>
           )}
-
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -534,74 +528,6 @@ const styles = StyleSheet.create({
     color: "#3D1F2B",
     fontSize: 16,
     fontWeight: "500",
-  },
-  whatsappConsentRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    backgroundColor: "#FFF",
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "#EFEFEF",
-    padding: 16,
-    shadowColor: '#351523',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  whatsappIconBox: {
-    alignItems: 'center',
-    backgroundColor: '#E8F7F0',
-    borderRadius: 14,
-    height: 44,
-    justifyContent: 'center',
-    width: 44,
-  },
-  whatsappConsentText: {
-    flex: 1,
-  },
-  whatsappTitle: {
-    color: '#3D1F2B',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  whatsappHelp: {
-    color: "#735A64",
-    fontSize: 12,
-    lineHeight: 17,
-    marginTop: 5,
-  },
-  whatsappStatus: {
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    backgroundColor: '#F2EEF0',
-    borderRadius: 9,
-    flexDirection: 'row',
-    gap: 5,
-    marginTop: 9,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-  },
-  whatsappStatusActive: {
-    backgroundColor: '#E8F7F0',
-  },
-  whatsappStatusDot: {
-    backgroundColor: '#A8989F',
-    borderRadius: 3,
-    height: 6,
-    width: 6,
-  },
-  whatsappStatusDotActive: {
-    backgroundColor: '#16805B',
-  },
-  whatsappStatusText: {
-    color: '#77656D',
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  whatsappStatusTextActive: {
-    color: '#16805B',
   },
   button: {
     backgroundColor: "#751935",
