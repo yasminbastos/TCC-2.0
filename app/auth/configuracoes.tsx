@@ -1,23 +1,23 @@
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage"; // Importação do armazenamento local
-import { useRouter } from "expo-router";
 import * as Location from "expo-location";
 import * as Notifications from "expo-notifications";
 import { sendPasswordResetEmail } from "firebase/auth";
 import React, { useEffect, useRef, useState } from "react";
 import {
-    AppState,
-    Linking,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Switch,
-    Text,
-    TouchableOpacity,
-    View,
+  AppState,
+  Linking,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
+import { useRouter } from "expo-router";
 import { showAppAlert } from '@/components/app-alert';
 import { auth } from "../../config/firebase";
+import { useIdioma } from "../../contexts/IdiomaContext";
 import {
   canUseFullScreenSosAlert,
   isBackgroundSosEnabled,
@@ -43,8 +43,16 @@ const textos = {
     idiomaApp: "Idioma do App",
     preferencias: "Preferências",
     notificacoes: "Notificações Push",
+    sosBackground: "SOS em segundo plano",
+    subSosBackground: "Três toques em aumentar volume; diminuir é ignorado",
     naoPerturbe: "Alertas no Não Perturbe",
     subNaoPerturbe: "Autorize o Zella no acesso especial do Android",
+    telaCheia: "Alerta SOS em tela cheia",
+    permitidoAparelho: "Permitido neste aparelho",
+    toquePermitirAndroid: "Toque para permitir no Android",
+    testarLocal: "Testar alerta SOS neste aparelho",
+    subTestarLocal: "Teste local; nenhum contato será avisado",
+    cancelarTeste: "Cancelar teste local agendado",
     sucessoEnvio: "E-mail Enviado",
     msgEnvio: "Verifique sua caixa de entrada para redefinir sua senha.",
     erro: "Erro",
@@ -59,8 +67,16 @@ const textos = {
     idiomaApp: "App Language",
     preferencias: "Preferences",
     notificacoes: "Push Notifications",
+    sosBackground: "Background SOS",
+    subSosBackground: "Triple-press volume up; volume down is ignored",
     naoPerturbe: "Do Not Disturb alerts",
     subNaoPerturbe: "Allow Zella in Android special access",
+    telaCheia: "Full-screen SOS alert",
+    permitidoAparelho: "Allowed on this device",
+    toquePermitirAndroid: "Tap to allow in Android",
+    testarLocal: "Test SOS alert on this device",
+    subTestarLocal: "Local test; no contacts will be notified",
+    cancelarTeste: "Cancel scheduled local test",
     sucessoEnvio: "Email Sent",
     msgEnvio: "Check your inbox to reset your password.",
     erro: "Error",
@@ -72,29 +88,15 @@ export default function Configuracoes() {
   const router = useRouter();
   const user = auth.currentUser;
 
-  const [idioma, setIdioma] = useState<"pt" | "en">("pt");
+  // Usa o contexto global de idioma em vez do useState local
+  const { idioma, mudarIdioma } = useIdioma();
+
   const [notificacoes, setNotificacoes] = useState(true);
   const [sosSegundoPlano, setSosSegundoPlano] = useState(false);
   const [alertaTelaCheiaPermitido, setAlertaTelaCheiaPermitido] = useState(true);
   const [alterandoSosSegundoPlano, setAlterandoSosSegundoPlano] = useState(false);
   const [testeLocalAgendadoId, setTesteLocalAgendadoId] = useState<string | null>(null);
   const testeLocalEmAndamentoRef = useRef(false);
-
-  // Carrega o idioma salvo assim que o usuário entra na tela
-  useEffect(() => {
-    const buscarIdiomaSalvo = async () => {
-      try {
-        const idiomaSalvo = await AsyncStorage.getItem("@zella_idioma");
-        if (idiomaSalvo === "pt" || idiomaSalvo === "en") {
-          setIdioma(idiomaSalvo);
-        }
-      } catch (error) {
-        console.log("Erro ao carregar idioma local:", error);
-      }
-    };
-
-    buscarIdiomaSalvo();
-  }, []);
 
   useEffect(() => {
     if (Platform.OS !== 'android') return;
@@ -125,21 +127,11 @@ export default function Configuracoes() {
       .catch((error) => console.log('Erro ao consultar teste SOS local:', error));
   }, []);
 
-  // Função para mudar o idioma e salvar a escolha no dispositivo
-  const handleAlterarIdioma = async (novoIdioma: "pt" | "en") => {
-    setIdioma(novoIdioma);
-    try {
-      await AsyncStorage.setItem("@zella_idioma", novoIdioma);
-    } catch (error) {
-      console.log("Erro ao salvar idioma local:", error);
-    }
-  };
-
   const t = textos[idioma];
 
   const handleMudarSenha = async () => {
     if (!user || !user.email) {
-      showAppAlert(t.erro, "User not found / Usuário não encontrado.");
+      showAppAlert(t.erro, idioma === "pt" ? "Usuário não encontrado." : "User not found.");
       return;
     }
 
@@ -196,30 +188,32 @@ export default function Configuracoes() {
     if (Platform.OS !== 'android' || alterandoSosSegundoPlano) return;
     setAlterandoSosSegundoPlano(true);
     try {
-      if (!auth.currentUser) throw new Error('Entre na sua conta antes de ativar esta proteção.');
+      if (!auth.currentUser) throw new Error(idioma === 'pt' ? 'Entre na sua conta antes de ativar esta proteção.' : 'Log in before activating this protection.');
 
       const locationPermission = await Location.requestForegroundPermissionsAsync();
       if (!locationPermission.granted) {
-        throw new Error('A localização é necessária para enviar sua posição no SOS.');
+        throw new Error(idioma === 'pt' ? 'A localização é necessária para enviar sua posição no SOS.' : 'Location is required to send your SOS position.');
       }
 
       const notificationPermission = await Notifications.requestPermissionsAsync();
       if (!notificationPermission.granted) {
-        throw new Error('As notificações são necessárias para manter a proteção ativa.');
+        throw new Error(idioma === 'pt' ? 'As notificações são necessárias para manter a proteção ativa.' : 'Notifications are required to keep protection active.');
       }
 
       await syncBackgroundSosProfile();
       await startBackgroundSos();
       setSosSegundoPlano(true);
       showAppAlert(
-        'Proteção em segundo plano ativada',
-        'Pressione três vezes o botão de aumentar volume em até 3 segundos para acionar o SOS. Com o app minimizado, mantenha o volume abaixo do máximo.'
+        idioma === 'pt' ? 'Proteção em segundo plano ativada' : 'Background protection enabled',
+        idioma === 'pt' 
+          ? 'Pressione três vezes o botão de aumentar volume em até 3 segundos para acionar o SOS. Com o app minimizado, mantenha o volume abaixo do máximo.'
+          : 'Triple-press volume up within 3 seconds to trigger SOS. With the app minimized, keep volume below maximum.'
       );
     } catch (error) {
       setSosSegundoPlano(false);
       showAppAlert(
-        'Não foi possível ativar',
-        error instanceof Error ? error.message : 'Tente novamente.'
+        idioma === 'pt' ? 'Não foi possível ativar' : 'Could not enable',
+        error instanceof Error ? error.message : idioma === 'pt' ? 'Tente novamente.' : 'Try again.'
       );
     } finally {
       setAlterandoSosSegundoPlano(false);
@@ -229,11 +223,13 @@ export default function Configuracoes() {
   const alterarSosSegundoPlano = (enabled: boolean) => {
     if (enabled) {
       showAppAlert(
-        'Ativar SOS em segundo plano?',
-        'Uma notificação permanente será exibida. Pressionar aumentar volume três vezes rapidamente acionará um SOS real. Diminuir volume será ignorado.',
+        idioma === 'pt' ? 'Ativar SOS em segundo plano?' : 'Enable background SOS?',
+        idioma === 'pt' 
+          ? 'Uma notificação permanente será exibida. Pressionar aumentar volume três vezes rapidamente acionará um SOS real. Diminuir volume será ignorado.'
+          : 'A permanent notification will be displayed. Pressing volume up three times quickly will trigger a real SOS. Volume down will be ignored.',
         [
-          { text: 'Cancelar', style: 'cancel' },
-          { text: 'Ativar', onPress: ativarSosSegundoPlano },
+          { text: idioma === 'pt' ? 'Cancelar' : 'Cancel', style: 'cancel' },
+          { text: idioma === 'pt' ? 'Ativar' : 'Enable', onPress: ativarSosSegundoPlano },
         ]
       );
       return;
@@ -242,7 +238,7 @@ export default function Configuracoes() {
     setAlterandoSosSegundoPlano(true);
     stopBackgroundSos()
       .then(() => setSosSegundoPlano(false))
-      .catch(() => showAppAlert('Erro', 'Não foi possível desativar a proteção.'))
+      .catch(() => showAppAlert(t.erro, idioma === 'pt' ? 'Não foi possível desativar a proteção.' : 'Could not disable protection.'))
       .finally(() => setAlterandoSosSegundoPlano(false));
   };
 
@@ -254,15 +250,17 @@ export default function Configuracoes() {
       const identifier = await scheduleLocalSosTest();
       setTesteLocalAgendadoId(identifier);
       showAppAlert(
-        'Teste local agendado',
-        'O alerta aparecerá em 10 segundos. Você pode manter o app aberto, colocá-lo em segundo plano ou removê-lo dos recentes.'
+        idioma === 'pt' ? 'Teste local agendado' : 'Local test scheduled',
+        idioma === 'pt' 
+          ? 'O alerta aparecerá em 10 segundos. Você pode manter o app aberto, colocá-lo em segundo plano ou removê-lo dos recentes.'
+          : 'The alert will appear in 10 seconds. You can keep the app open, put it in the background, or remove it from recents.'
       );
     } catch (error) {
       const message =
         error instanceof LocalSosTestError
           ? error.message
-          : 'Não foi possível agendar o teste local.';
-      showAppAlert('Teste local não agendado', message);
+          : idioma === 'pt' ? 'Não foi possível agendar o teste local.' : 'Could not schedule local test.';
+      showAppAlert(idioma === 'pt' ? 'Teste local não agendado' : 'Local test not scheduled', message);
 
       if (error instanceof LocalSosTestError && error.code === 'already-scheduled') {
         setTesteLocalAgendadoId(await getPendingLocalSosTestId());
@@ -276,11 +274,13 @@ export default function Configuracoes() {
     if (!__DEV__) return;
 
     showAppAlert(
-      'Testar alerta SOS neste aparelho',
-      'Este teste é estritamente local. Nenhum contato será avisado e nenhum dado será enviado para serviços externos.',
+      idioma === 'pt' ? 'Testar alerta SOS neste aparelho' : 'Test SOS alert on this device',
+      idioma === 'pt' 
+        ? 'Este teste é estritamente local. Nenhum contato será avisado e nenhum dado será enviado para serviços externos.'
+        : 'This test is strictly local. No contacts will be notified and no data will be sent to external services.',
       [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Agendar em 10 segundos', onPress: executarTesteLocalSeguro },
+        { text: idioma === 'pt' ? 'Cancelar' : 'Cancel', style: 'cancel' },
+        { text: idioma === 'pt' ? 'Agendar em 10 segundos' : 'Schedule in 10 seconds', onPress: executarTesteLocalSeguro },
       ]
     );
   };
@@ -293,13 +293,15 @@ export default function Configuracoes() {
       const canceled = await cancelLocalSosTest(testeLocalAgendadoId);
       setTesteLocalAgendadoId(null);
       showAppAlert(
-        canceled ? 'Teste local cancelado' : 'Teste local já entregue',
+        canceled 
+          ? (idioma === 'pt' ? 'Teste local cancelado' : 'Local test canceled') 
+          : (idioma === 'pt' ? 'Teste local já entregue' : 'Local test already delivered'),
         canceled
-          ? 'A notificação agendada foi cancelada.'
-          : 'A notificação não estava mais entre os alertas agendados.'
+          ? (idioma === 'pt' ? 'A notificação agendada foi cancelada.' : 'The scheduled notification has been canceled.')
+          : (idioma === 'pt' ? 'A notificação não estava mais entre os alertas agendados.' : 'The notification was no longer among scheduled alerts.')
       );
     } catch {
-      showAppAlert('Erro', 'Não foi possível cancelar o teste local.');
+      showAppAlert(t.erro, idioma === 'pt' ? 'Não foi possível cancelar o teste local.' : 'Could not cancel local test.');
     } finally {
       testeLocalEmAndamentoRef.current = false;
     }
@@ -348,14 +350,14 @@ export default function Configuracoes() {
             <View style={styles.radioGroup}>
               <TouchableOpacity
                 style={[styles.radioButton, idioma === "pt" && styles.radioActive]}
-                onPress={() => handleAlterarIdioma("pt")}
+                onPress={() => mudarIdioma("pt")}
               >
                 <Text style={[styles.radioLabel, idioma === "pt" && styles.radioLabelActive]}>PT</Text>
               </TouchableOpacity>
               
               <TouchableOpacity
                 style={[styles.radioButton, idioma === "en" && styles.radioActive]}
-                onPress={() => handleAlterarIdioma("en")}
+                onPress={() => mudarIdioma("en")}
               >
                 <Text style={[styles.radioLabel, idioma === "en" && styles.radioLabelActive]}>EN</Text>
               </TouchableOpacity>
@@ -387,8 +389,8 @@ export default function Configuracoes() {
                   <Ionicons name="shield-checkmark-outline" size={20} color="#9c3569" />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.menuText}>SOS em segundo plano</Text>
-                  <Text style={styles.subText}>Três toques em aumentar volume; diminuir é ignorado</Text>
+                  <Text style={styles.menuText}>{t.sosBackground}</Text>
+                  <Text style={styles.subText}>{t.subSosBackground}</Text>
                 </View>
               </View>
               <Switch
@@ -421,11 +423,9 @@ export default function Configuracoes() {
                   <Ionicons name="phone-portrait-outline" size={20} color="#9c3569" />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.menuText}>Alerta SOS em tela cheia</Text>
+                  <Text style={styles.menuText}>{t.telaCheia}</Text>
                   <Text style={styles.subText}>
-                    {alertaTelaCheiaPermitido
-                      ? 'Permitido neste aparelho'
-                      : 'Toque para permitir no Android'}
+                    {alertaTelaCheiaPermitido ? t.permitidoAparelho : t.toquePermitirAndroid}
                   </Text>
                 </View>
               </View>
@@ -444,8 +444,8 @@ export default function Configuracoes() {
                     <Ionicons name="flask-outline" size={20} color="#9c3569" />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.menuText}>Testar alerta SOS neste aparelho</Text>
-                    <Text style={styles.subText}>Teste local; nenhum contato será avisado</Text>
+                    <Text style={styles.menuText}>{t.testarLocal}</Text>
+                    <Text style={styles.subText}>{t.subTestarLocal}</Text>
                   </View>
                 </View>
                 <Ionicons name="timer-outline" size={18} color="#751935" />
@@ -456,7 +456,7 @@ export default function Configuracoes() {
                     <View style={styles.iconBox}>
                       <Ionicons name="close-circle-outline" size={20} color="#9c3569" />
                     </View>
-                    <Text style={styles.menuText}>Cancelar teste local agendado</Text>
+                    <Text style={styles.menuText}>{t.cancelarTeste}</Text>
                   </View>
                 </TouchableOpacity>
               )}

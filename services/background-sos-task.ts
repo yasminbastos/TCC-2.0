@@ -10,7 +10,6 @@ import {
   syncBackgroundSosProfile,
   type BackgroundSosProfile,
 } from '@/services/background-sos-control';
-import { sendWhatsAppSos } from '@/services/whatsapp-sos';
 
 type Coordinates = { latitude: number; longitude: number };
 
@@ -139,24 +138,10 @@ export async function handleBackgroundSos() {
       }
     }
 
-    let whatsappSent = 0;
-    if (auth.currentUser?.uid === profile.uid) {
-      try {
-        const whatsapp = await sendWhatsAppSos({
-          latitude: coordinates?.latitude,
-          longitude: coordinates?.longitude,
-        });
-        whatsappSent = whatsapp.sent;
-      } catch (error) {
-        // Uma falha do WhatsApp não deve impedir o alerta push.
-        console.log('Não foi possível enviar o SOS pelo WhatsApp:', error);
-      }
-    }
-
     await notifyOwner(
       'SOS acionado em segundo plano',
-      pushAccepted > 0 || whatsappSent > 0
-        ? `Push aceito para ${pushAccepted} e WhatsApp enviado para ${whatsappSent} contato(s).`
+      pushAccepted > 0
+        ? `Alerta enviado com sucesso para ${pushAccepted} contato(s).`
         : 'SOS registrado, mas nenhum contato com notificações ativas foi encontrado.'
     );
   } catch (error) {

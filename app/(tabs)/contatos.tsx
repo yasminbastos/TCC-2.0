@@ -25,6 +25,7 @@ import {
 } from 'firebase/firestore';
 import { syncBackgroundSosProfile } from '../../services/background-sos-control';
 import { showAppAlert } from '@/components/app-alert';
+import { useIdioma } from '../../contexts/IdiomaContext';
 
 const AVATARES = [
   { id: "person", icon: "person", color: "#921637ff" },
@@ -43,6 +44,61 @@ interface Contato {
   avatarId?: string; 
 }
 
+const textos = {
+  pt: {
+    headerTitle: "Contatos de Emergência",
+    description: "Pessoas de confiança que receberão sua localização no SOS.",
+    placeholderEmail: "E-mail do contato",
+    adicionar: "Adicionar",
+    infoText: "Apenas usuários cadastrados no Zella.",
+    seusContatos: "Seus contatos",
+    erro: "Erro",
+    aviso: "Aviso",
+    sucesso: "Sucesso",
+    naoEncontrado: "Não encontrado",
+    msgEmailVazio: "Digite o e-mail.",
+    msgProprioContato: "Você não pode adicionar você mesma como seu próprio contato de emergência.",
+    msgNaoCadastrado: "E-mail não cadastrado no Zella.",
+    msgJaNaLista: "Já está na sua lista.",
+    msgSucessoAdd: "Contato adicionado!",
+    msgErroAdd: "Falha ao adicionar.",
+    msgSucessoApelido: "Nome de exibição atualizado!",
+    msgErroApelido: "Não foi possível salvar o apelido.",
+    msgErroRemover: "Não foi possível remover o contato.",
+    modalTitle: "Editar apelido",
+    modalSub: "Como você quer identificar essa pessoa no app?",
+    placeholderApelido: "Ex: Mãe, Irmão...",
+    cancelar: "Cancelar",
+    salvar: "Salvar"
+  },
+  en: {
+    headerTitle: "Emergency Contacts",
+    description: "Trusted people who will receive your location during an SOS.",
+    placeholderEmail: "Contact's email",
+    adicionar: "Add",
+    infoText: "Only users registered on Zella.",
+    seusContatos: "Your contacts",
+    erro: "Error",
+    aviso: "Notice",
+    sucesso: "Success",
+    naoEncontrado: "Not found",
+    msgEmailVazio: "Enter the email.",
+    msgProprioContato: "You cannot add yourself as your own emergency contact.",
+    msgNaoCadastrado: "Email not registered on Zella.",
+    msgJaNaLista: "Already on your list.",
+    msgSucessoAdd: "Contact added!",
+    msgErroAdd: "Failed to add.",
+    msgSucessoApelido: "Display name updated!",
+    msgErroApelido: "Could not save the nickname.",
+    msgErroRemover: "Could not remove contact.",
+    modalTitle: "Edit nickname",
+    modalSub: "How do you want to identify this person in the app?",
+    placeholderApelido: "Ex: Mom, Brother...",
+    cancelar: "Cancel",
+    salvar: "Save"
+  }
+};
+
 export default function ContatosScreen() {
   const [emailBusca, setEmailBusca] = useState('');
   const [contatos, setContatos] = useState<Contato[]>([]);
@@ -51,6 +107,9 @@ export default function ContatosScreen() {
   const [modalVisivel, setModalVisivel] = useState(false);
   const [contatoSelecionado, setContatoSelecionado] = useState<Contato | null>(null);
   const [novoApelido, setNovoApelido] = useState('');
+
+  const { idioma } = useIdioma();
+  const t = textos[idioma] || textos.pt;
 
   useEffect(() => {
     buscarContatosSalvos();
@@ -84,19 +143,16 @@ export default function ContatosScreen() {
     }
   };
 
-  // 🔄 FUNÇÃO ADICIONAR CONTATO CORRIGIDA
   const adicionarContato = async () => {
     const emailLimpo = emailBusca.trim().toLowerCase();
 
-    // 1️⃣ Validação de campo vazio
     if (emailLimpo === '') {
-      showAppAlert("Erro", "Digite o e-mail.");
+      showAppAlert(t.erro, t.msgEmailVazio);
       return;
     }
 
-    // 2️⃣ 🚫 BLOQUEIO DE SEGURANÇA: Não deixa adicionar você mesma!
     if (emailLimpo === auth.currentUser?.email?.toLowerCase()) {
-      showAppAlert("Aviso", "Você não pode adicionar você mesma como seu próprio contato de emergência.");
+      showAppAlert(t.aviso, t.msgProprioContato);
       return; 
     }
 
@@ -106,14 +162,14 @@ export default function ContatosScreen() {
       const querySnapshot = await getDocs(q);
 
       if (querySnapshot.empty) {
-        showAppAlert("Não encontrado", "E-mail não cadastrado no Zella.");
+        showAppAlert(t.naoEncontrado, t.msgNaoCadastrado);
         setLoading(false);
         return;
       }
 
       const contatoId = querySnapshot.docs[0].id;
       if (contatos.some(c => c.id === contatoId)) {
-        showAppAlert("Aviso", "Já está na sua lista.");
+        showAppAlert(t.aviso, t.msgJaNaLista);
         setLoading(false);
         return;
       }
@@ -125,9 +181,9 @@ export default function ContatosScreen() {
 
       setEmailBusca('');
       buscarContatosSalvos();
-      showAppAlert("Sucesso", "Contato adicionado!");
+      showAppAlert(t.sucesso, t.msgSucessoAdd);
     } catch (error) {
-      showAppAlert("Erro", "Falha ao adicionar.");
+      showAppAlert(t.erro, t.msgErroAdd);
     } finally {
       setLoading(false);
     }
@@ -142,9 +198,9 @@ export default function ContatosScreen() {
       });
       setModalVisivel(false);
       buscarContatosSalvos(); 
-      showAppAlert("Sucesso", "Nome de exibição atualizado!");
+      showAppAlert(t.sucesso, t.msgSucessoApelido);
     } catch (error) {
-      showAppAlert("Erro", "Não foi possível salvar o apelido.");
+      showAppAlert(t.erro, t.msgErroApelido);
     }
   };
 
@@ -158,7 +214,7 @@ export default function ContatosScreen() {
       await syncBackgroundSosProfile();
       setContatos(contatos.filter(c => c.id !== id));
     } catch (error) {
-      showAppAlert("Erro", "Não foi possível remover o contato.");
+      showAppAlert(t.erro, t.msgErroRemover);
     }
   };
 
@@ -180,9 +236,9 @@ export default function ContatosScreen() {
             <Ionicons name="shield-checkmark" size={24} color="#98203aff" />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.headerTitle}>Contatos de Emergência</Text>
+            <Text style={styles.headerTitle}>{t.headerTitle}</Text>
             <Text style={styles.description}>
-              Pessoas de confiança que receberão sua localização no SOS.
+              {t.description}
             </Text>
           </View>
         </View>
@@ -190,7 +246,7 @@ export default function ContatosScreen() {
         <View style={styles.inputBox}>
           <Ionicons name="mail-outline" size={20} color="#8A929A" style={{ marginRight: 12 }} />
           <TextInput
-            placeholder="E-mail do contato"
+            placeholder={t.placeholderEmail}
             placeholderTextColor="#91979e"
             value={emailBusca}
             onChangeText={setEmailBusca}
@@ -199,19 +255,19 @@ export default function ContatosScreen() {
             style={styles.inputTextStyle}
           />
           <TouchableOpacity style={styles.inlineButton} onPress={adicionarContato}>
-            {loading ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={styles.inlineButtonText}>Adicionar</Text>}
+            {loading ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={styles.inlineButtonText}>{t.adicionar}</Text>}
           </TouchableOpacity>
         </View>
 
         <View style={styles.infoRow}>
           <Ionicons name="information-circle-outline" size={14} color="#FCEAEF" />
-          <Text style={styles.infoText}>Apenas usuários cadastrados no Zella.</Text>
+          <Text style={styles.infoText}>{t.infoText}</Text>
         </View>
       </View>
 
       <View style={styles.contentContainer}>
         <View style={styles.listHeader}>
-          <Text style={styles.listHeaderText}>Seus contatos ({contatos.length})</Text>
+          <Text style={styles.listHeaderText}>{t.seusContatos} ({contatos.length})</Text>
           <View style={styles.line} />
         </View>
 
@@ -257,21 +313,21 @@ export default function ContatosScreen() {
       <Modal visible={modalVisivel} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Editar apelido</Text>
-            <Text style={styles.modalSub}>Como você quer identificar essa pessoa no app?</Text>
+            <Text style={styles.modalTitle}>{t.modalTitle}</Text>
+            <Text style={styles.modalSub}>{t.modalSub}</Text>
             <TextInput
               value={novoApelido}
               onChangeText={setNovoApelido}
               style={styles.modalInputStyle}
-              placeholder="Ex: Mãe, Irmão..."
+              placeholder={t.placeholderApelido}
               placeholderTextColor="#A4ACB4"
             />
             <View style={styles.modalFooter}>
               <TouchableOpacity onPress={() => setModalVisivel(false)} style={styles.cancelBtn}>
-                <Text style={{ color: '#495057', fontWeight: '500' }}>Cancelar</Text>
+                <Text style={{ color: '#495057', fontWeight: '500' }}>{t.cancelar}</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={salvarApelido} style={styles.saveBtn}>
-                <Text style={{ color: '#FFF', fontWeight: '600' }}>Salvar</Text>
+                <Text style={{ color: '#FFF', fontWeight: '600' }}>{t.salvar}</Text>
               </TouchableOpacity>
             </View>
           </View>

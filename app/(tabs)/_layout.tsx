@@ -2,8 +2,27 @@ import React from 'react';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Platform, View, StyleSheet, TouchableOpacity, Text } from 'react-native';
+import { useIdioma } from '../../contexts/IdiomaContext'; // Ajuste o caminho conforme a sua pasta
+
+const textosAbas = {
+  pt: {
+    inicio: 'Início',
+    forum: 'Fórum',
+    cuidese: 'Cuide-se',
+    perfil: 'Perfil',
+  },
+  en: {
+    inicio: 'Home',
+    forum: 'Forum',
+    cuidese: 'Self-care',
+    perfil: 'Profile',
+  },
+};
 
 export default function TabLayout() {
+  const { idioma } = useIdioma();
+  const t = textosAbas[idioma];
+
   return (
     <Tabs
       screenOptions={{
@@ -32,27 +51,29 @@ export default function TabLayout() {
         }
       }}>
       
-      {/* 1. INÍCIO */}
+      {/* INÍCIO */}
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Início',
+          title: t.inicio,
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? "home" : "home-outline"} size={24} color={color} />
           ),
         }}
       />
 
-      {/* 2. FÓRUM */}
+      {/* FÓRUM */}
       <Tabs.Screen
         name="forum"
         options={{
-          title: 'Fórum',
+          title: t.forum,
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? "chatbubbles" : "chatbubbles-outline"} size={24} color={color} />
           ),
         }}
       />
+
+      {/* SOS (Botão Central) */}
       <Tabs.Screen
         name="emergencia"
         options={{
@@ -76,29 +97,29 @@ export default function TabLayout() {
         }}
       />
 
-            <Tabs.Screen
+      {/* CUIDE-SE / NOTÍCIAS */}
+      <Tabs.Screen
         name="noticias"
         options={{
-          title: 'Cuide-se',
+          title: t.cuidese,
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? "book" : "book-outline"} size={24} color={color} />
           ),
         }}
       />
 
-
+      {/* PERFIL */}
       <Tabs.Screen
         name="perfil" 
         options={{
-          title: 'Perfil',
+          title: t.perfil,
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? "person" : "person-outline"} size={24} color={color} />
           ),
         }}
       />
 
-
-
+      {/* CONTATOS (Oculto na barra) */}
       <Tabs.Screen
         name="contatos" 
         options={{

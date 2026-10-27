@@ -15,9 +15,7 @@ import { db, auth } from '../../config/firebase';
 import { collection, query, where, getDocs, orderBy, doc, deleteDoc, writeBatch } from 'firebase/firestore';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { showAppAlert } from '@/components/app-alert';
-
-// SUBSTTTUA PELA SUA CHAVE DO GOOGLE MAPS (Caso tenha uma)
-const GOOGLE_MAPS_API_KEY = 'SUA_CHAVE_API_AQUI';
+import { useIdioma } from '../../contexts/IdiomaContext';
 
 const Theme = {
   background: '#FDF5F6',
@@ -30,14 +28,68 @@ const Theme = {
   badgeText: '#A8203D',
 };
 
+const textos = {
+  pt: {
+    titulo: "Registros de SOS",
+    subSelecionado: (count: number) => `${count} selecionado(s)`,
+    subPadrao: "Seu histórico de acionamentos de emergência",
+    statRegistros: "registros realizados",
+    ultimoAcionamento: "Último acionamento",
+    nenhumAcionamento: "--",
+    filtroTodos: "Todos",
+    filtroMes: "Este mês",
+    filtroAntigos: "Mais antigos",
+    maisRecente: "MAIS RECENTE",
+    sosAcionado: "SOS acionado",
+    localizacaoRegistrada: "Localização registrada",
+    verLocalizacao: "Ver localização",
+    atencao: "Atenção",
+    msgSelecionar: "Seu histórico de acionamentos de emergência", // ou selecione pelo menos um
+    msgSelecionarRegistro: "Seu histórico de acionamentos de emergência",
+    confirmarExclusao: "Confirmar Exclusão",
+    msgCertezaExcluir: (count: number) => `Tem certeza que deseja apagar ${count} registro(s) do histórico? Esta ação não pode ser desfeita.`,
+    cancelar: "Cancelar",
+    excluir: "Excluir",
+    erro: "Erro",
+    msgErroExcluir: "Não foi possível excluir os registros selecionados.",
+    vazio: "Nenhum alerta disparado ainda."
+  },
+  en: {
+    titulo: "SOS Records",
+    subSelecionado: (count: number) => `${count} selected`,
+    subPadrao: "Your emergency trigger history",
+    statRegistros: "records made",
+    ultimoAcionamento: "Last trigger",
+    nenhumAcionamento: "--",
+    filtroTodos: "All",
+    filtroMes: "This month",
+    filtroAntigos: "Oldest",
+    maisRecente: "MOST RECENT",
+    sosAcionado: "SOS triggered",
+    localizacaoRegistrada: "Recorded location",
+    verLocalizacao: "View location",
+    atencao: "Attention",
+    msgSelecionar: "Select at least one record to delete.",
+    confirmarExclusao: "Confirm Deletion",
+    msgCertezaExcluir: (count: number) => `Are you sure you want to delete ${count} record(s) from history? This action cannot be undone.`,
+    cancelar: "Cancel",
+    excluir: "Delete",
+    erro: "Error",
+    msgErroExcluir: "Could not delete selected records.",
+    vazio: "No alerts triggered yet."
+  }
+};
+
 const HistoryScreen = () => {
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<'todos' | 'mes' | 'antigos'>('todos');
 
-  // Estados para seleção e exclusão
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+  const { idioma } = useIdioma();
+  const t = textos[idioma] || textos.pt;
 
   useFocusEffect(
     useCallback(() => {
@@ -64,9 +116,10 @@ const HistoryScreen = () => {
         let dateObj = data.timestamp?.toDate ? data.timestamp.toDate() : new Date();
 
         const day = dateObj.getDate().toString().padStart(2, '0');
-        const month = dateObj.toLocaleString('pt-BR', { month: 'short' }).replace('.', '').toUpperCase();
-        const time = dateObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-        const fullDate = dateObj.toLocaleDateString('pt-BR');
+        const monthLocale = idioma === 'en' ? 'en-US' : 'pt-BR';
+        const month = dateObj.toLocaleString(monthLocale, { month: 'short' }).replace('.', '').toUpperCase();
+        const time = dateObj.toLocaleTimeString(monthLocale, { hour: '2-digit', minute: '2-digit' });
+        const fullDate = dateObj.toLocaleDateString(monthLocale);
 
         lista.push({
           id: docSnap.id,
@@ -87,7 +140,6 @@ const HistoryScreen = () => {
     }
   };
 
-  // Alternar seleção do item
   const toggleSelect = (id: string) => {
     if (selectedIds.includes(id)) {
       setSelectedIds(selectedIds.filter(item => item !== id));
@@ -96,20 +148,19 @@ const HistoryScreen = () => {
     }
   };
 
-  // Confirmar Exclusão com Modal
   const confirmDelete = () => {
     if (selectedIds.length === 0) {
-      showAppAlert("Atenção", "Selecione pelo menos um registro para excluir.");
+      showAppAlert(t.atencao, t.msgSelecionar);
       return;
     }
 
     showAppAlert(
-      "Confirmar Exclusão",
-      `Tem certeza que deseja apagar ${selectedIds.length} registro(s) do histórico? Esta ação não pode ser desfeita.`,
+      t.confirmarExclusao,
+      t.msgCertezaExcluir(selectedIds.length),
       [
-        { text: "Cancelar", style: "cancel" },
+        { text: t.cancelar, style: "cancel" },
         {
-          text: "Excluir",
+          text: t.excluir,
           style: "destructive",
           onPress: handleDeleteSelected
         }
@@ -117,7 +168,6 @@ const HistoryScreen = () => {
     );
   };
 
-  // Apagar itens selecionados no Firestore
   const handleDeleteSelected = async () => {
     setLoading(true);
     try {
@@ -129,18 +179,16 @@ const HistoryScreen = () => {
 
       await batch.commit();
 
-      // Limpa os selecionados e atualiza a tela
       setSelectedIds([]);
       setIsSelectionMode(false);
       await loadHistory();
     } catch (error) {
       console.error("Erro ao excluir registros:", error);
-      showAppAlert("Erro", "Não foi possível excluir os registros selecionados.");
+      showAppAlert(t.erro, t.msgErroExcluir);
       setLoading(false);
     }
   };
 
-  // Filtragem
   const filteredLogs = useMemo(() => {
     if (activeFilter === 'mes') {
       const currentMonth = new Date().getMonth();
@@ -156,7 +204,7 @@ const HistoryScreen = () => {
     return logs;
   }, [logs, activeFilter]);
 
-  const lastAlert = logs.length > 0 ? `${logs[0].fullDate} às ${logs[0].formattedTime}` : '--';
+  const lastAlert = logs.length > 0 ? `${logs[0].fullDate} ${idioma === 'en' ? 'at' : 'às'} ${logs[0].formattedTime}` : t.nenhumAcionamento;
 
   const renderItem = ({ item, index }: { item: any; index: number }) => {
     const isFirst = index === 0;
@@ -171,7 +219,6 @@ const HistoryScreen = () => {
 
     return (
       <View style={styles.timelineRow}>
-        {/* Checkbox em modo de seleção ou Bolinha da linha do tempo */}
         {isSelectionMode ? (
           <TouchableOpacity
             style={styles.checkboxContainer}
@@ -191,7 +238,6 @@ const HistoryScreen = () => {
           </View>
         )}
 
-        {/* Card */}
         <TouchableOpacity
           style={styles.cardContainer}
           activeOpacity={isSelectionMode ? 0.7 : 1}
@@ -200,7 +246,7 @@ const HistoryScreen = () => {
           {isFirst && !isSelectionMode && (
             <View style={styles.badgeContainer}>
               <View style={styles.badge}>
-                <Text style={styles.badgeText}>MAIS RECENTE</Text>
+                <Text style={styles.badgeText}>{t.maisRecente}</Text>
               </View>
             </View>
           )}
@@ -219,21 +265,20 @@ const HistoryScreen = () => {
                       <Text style={styles.timeText}>{item.formattedTime}</Text>
                       <Ionicons name="warning" size={18} color={Theme.accent} style={{ marginLeft: 6 }} />
                     </View>
-                    <Text style={styles.alertTitle}>SOS acionado</Text>
+                    <Text style={styles.alertTitle}>{t.sosAcionado}</Text>
                   </View>
                 </View>
 
                 <View style={styles.locationContainer}>
                   <Ionicons name="location-sharp" size={16} color={Theme.accent} />
                   <View style={{ marginLeft: 4 }}>
-                    <Text style={styles.locationLabel}>Localização registrada</Text>
+                    <Text style={styles.locationLabel}>{t.localizacaoRegistrada}</Text>
                     <Text style={styles.locationText}>{item.cityState || 'São Paulo, SP'}</Text>
                   </View>
                 </View>
               </View>
 
               <View style={styles.rightColumn}>
-                {/* Visualização de imagem real do mapa */}
                 <View style={styles.mapPreviewContainer}>
                   <Image source={{ uri: mapImageUrl }} style={styles.mapImage} />
                 </View>
@@ -244,7 +289,7 @@ const HistoryScreen = () => {
                   activeOpacity={0.8}
                   disabled={isSelectionMode}
                 >
-                  <Text style={styles.mapButtonText}>Ver localização</Text>
+                  <Text style={styles.mapButtonText}>{t.verLocalizacao}</Text>
                   <Ionicons name="open-outline" size={14} color="white" />
                 </TouchableOpacity>
               </View>
@@ -257,14 +302,13 @@ const HistoryScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header com os 3 pontinhos e ações */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.title}>Registros de SOS</Text>
+          <Text style={styles.title}>{t.titulo}</Text>
           <Text style={styles.subtitle}>
             {isSelectionMode
-              ? `${selectedIds.length} selecionado(s)`
-              : 'Seu histórico de acionamentos de emergência'}
+              ? t.subSelecionado(selectedIds.length)
+              : t.subPadrao}
           </Text>
         </View>
 
@@ -287,7 +331,6 @@ const HistoryScreen = () => {
         )}
       </View>
 
-      {/* Estatísticas */}
       <View style={styles.statsCard}>
         <View style={styles.statBox}>
           <View style={styles.iconCircle}>
@@ -295,7 +338,7 @@ const HistoryScreen = () => {
           </View>
           <View style={styles.statTextContainer}>
             <Text style={styles.statNumber}>{logs.length}</Text>
-            <Text style={styles.statLabel}>registros realizados</Text>
+            <Text style={styles.statLabel}>{t.statRegistros}</Text>
           </View>
         </View>
 
@@ -306,41 +349,39 @@ const HistoryScreen = () => {
             <MaterialCommunityIcons name="calendar-clock" size={24} color={Theme.primary} />
           </View>
           <View style={styles.statTextContainer}>
-            <Text style={styles.lastAlertLabel}>Último acionamento</Text>
+            <Text style={styles.lastAlertLabel}>{t.ultimoAcionamento}</Text>
             <Text style={styles.lastAlertValue}>{lastAlert}</Text>
           </View>
         </View>
       </View>
 
-      {/* Filtros */}
       <View style={styles.filterContainer}>
         <TouchableOpacity
           style={[styles.filterTab, activeFilter === 'todos' && styles.filterTabActive]}
           onPress={() => setActiveFilter('todos')}
         >
-          <Text style={[styles.filterText, activeFilter === 'todos' && styles.filterTextActive]}>Todos</Text>
+          <Text style={[styles.filterText, activeFilter === 'todos' && styles.filterTextActive]}>{t.filtroTodos}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.filterTab, activeFilter === 'mes' && styles.filterTabActive]}
           onPress={() => setActiveFilter('mes')}
         >
-          <Text style={[styles.filterText, activeFilter === 'mes' && styles.filterTextActive]}>Este mês</Text>
+          <Text style={[styles.filterText, activeFilter === 'mes' && styles.filterTextActive]}>{t.filtroMes}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.filterTab, activeFilter === 'antigos' && styles.filterTabActive]}
           onPress={() => setActiveFilter('antigos')}
         >
-          <Text style={[styles.filterText, activeFilter === 'antigos' && styles.filterTextActive]}>Mais antigos</Text>
+          <Text style={[styles.filterText, activeFilter === 'antigos' && styles.filterTextActive]}>{t.filtroAntigos}</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Lista */}
       {loading ? (
         <ActivityIndicator size="large" color={Theme.primary} style={{ marginTop: 50 }} />
       ) : filteredLogs.length === 0 ? (
-        <Text style={styles.emptyText}>Nenhum alerta disparado ainda.</Text>
+        <Text style={styles.emptyText}>{t.vazio}</Text>
       ) : (
         <FlatList
           data={filteredLogs}
@@ -387,8 +428,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-
-  // Stats
   statsCard: {
     backgroundColor: Theme.cardBg,
     borderRadius: 16,
@@ -419,8 +458,6 @@ const styles = StyleSheet.create({
   statDivider: { width: 1, height: 35, backgroundColor: '#EBEBEB', marginHorizontal: 8 },
   lastAlertLabel: { fontSize: 11, color: Theme.textMuted },
   lastAlertValue: { fontSize: 12, fontWeight: 'bold', color: Theme.textDark, marginTop: 2 },
-
-  // Filters
   filterContainer: {
     flexDirection: 'row',
     backgroundColor: '#F5E9ED',
@@ -432,8 +469,6 @@ const styles = StyleSheet.create({
   filterTabActive: { backgroundColor: Theme.primary },
   filterText: { fontSize: 13, fontWeight: '600', color: Theme.primary },
   filterTextActive: { color: 'white' },
-
-  // Timeline & Checkbox
   timelineRow: { flexDirection: 'row', marginBottom: 12 },
   timelineContainer: { width: 24, alignItems: 'center', marginRight: 8 },
   checkboxContainer: { width: 24, justifyContent: 'center', alignItems: 'center', marginRight: 8 },
@@ -449,8 +484,6 @@ const styles = StyleSheet.create({
   },
   timelineLineTop: { position: 'absolute', top: 0, bottom: '50%', width: 2, backgroundColor: Theme.accent },
   timelineLineBottom: { position: 'absolute', top: 18, bottom: -16, width: 2, backgroundColor: Theme.accent },
-
-  // Cards
   cardContainer: { flex: 1 },
   badgeContainer: { alignItems: 'center', marginBottom: 6 },
   badge: { backgroundColor: Theme.badgeBg, paddingHorizontal: 10, paddingVertical: 3, borderRadius: 12 },
@@ -480,8 +513,6 @@ const styles = StyleSheet.create({
   locationContainer: { flexDirection: 'row', alignItems: 'flex-start', marginTop: 12 },
   locationLabel: { fontSize: 11, color: Theme.textMuted },
   locationText: { fontSize: 11, color: Theme.textMuted },
-
-  // Right Map & Button
   rightColumn: { flex: 0.9, alignItems: 'flex-end', justifyContent: 'space-between', paddingLeft: 8 },
   mapPreviewContainer: {
     width: '100%',

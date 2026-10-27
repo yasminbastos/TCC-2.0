@@ -124,7 +124,8 @@ export default function SignUpScreen() {
       return;
     }
 
-    const regexSenhaForte = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d]{8,}$/;
+    const regexSenhaForte = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
+
     if (!regexSenhaForte.test(senha)) {
       showAppAlert(t.titSenhaFraca, t.msgSenhaFraca);
       return;

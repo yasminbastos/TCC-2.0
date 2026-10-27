@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { showAppAlert } from '@/components/app-alert';
+import { useIdioma } from '../../contexts/IdiomaContext';
 
 type Filtro = 'postagens' | 'em-alta' | 'minhas';
 
@@ -96,6 +97,69 @@ const POSTAGENS_INICIAIS: Postagem[] = [
   },
 ];
 
+const textos = {
+  pt: {
+    forum: "Fórum",
+    subSeguro: "Um espaço seguro para conversar e acolher.",
+    placeholderBusca: "Buscar no fórum",
+    filtroPostagens: "Postagens",
+    filtroEmAlta: "Em alta",
+    filtroMinhas: "Minhas postagens",
+    placeholderComposer: "Compartilhe algo com a comunidade...",
+    tituloEmAlta: "Em alta agora",
+    tituloMinhas: "Minhas postagens",
+    tituloRecentes: "Postagens recentes",
+    vazioTituloMinhas: "Você ainda não publicou",
+    vazioSubMinhas: "Sua próxima postagem aparecerá aqui.",
+    vazioTituloGeral: "Nenhuma postagem encontrada",
+    vazioSubGeral: "Tente buscar por outra palavra.",
+    voltarForum: "Voltar ao fórum",
+    postagemModal: "Postagem",
+    respostas: "Respostas",
+    semComentariosTitulo: "Ainda não há comentários",
+    semComentariosSub: "Seja a primeira pessoa a responder.",
+    placeholderResponder: (nome: string) => `Responder a ${nome}`,
+    editarPostagem: "Editar postagem",
+    cancelar: "Cancelar",
+    salvar: "Salvar",
+    editar: "Editar",
+    excluir: "Excluir",
+    suaPostagem: "Sua postagem",
+    msgExcluirTitulo: "Excluir postagem?",
+    msgExcluirSub: "A postagem e todos os comentários serão removidos."
+  },
+  en: {
+    forum: "Forum",
+    subSeguro: "A safe space to talk and support each other.",
+    placeholderBusca: "Search forum",
+    filtroPostagens: "Posts",
+    filtroEmAlta: "Trending",
+    filtroMinhas: "My posts",
+    placeholderComposer: "Share something with the community...",
+    tituloEmAlta: "Trending now",
+    tituloMinhas: "My posts",
+    tituloRecentes: "Recent posts",
+    vazioTituloMinhas: "You haven't posted yet",
+    vazioSubMinhas: "Your next post will appear here.",
+    vazioTituloGeral: "No posts found",
+    vazioSubGeral: "Try searching for another word.",
+    voltarForum: "Back to forum",
+    postagemModal: "Post",
+    respostas: "Replies",
+    semComentariosTitulo: "No comments yet",
+    semComentariosSub: "Be the first person to reply.",
+    placeholderResponder: (nome: string) => `Reply to ${nome}`,
+    editarPostagem: "Edit post",
+    cancelar: "Cancel",
+    salvar: "Save",
+    editar: "Edit",
+    excluir: "Delete",
+    suaPostagem: "Your post",
+    msgExcluirTitulo: "Delete post?",
+    msgExcluirSub: "The post and all comments will be removed."
+  }
+};
+
 export default function ForumScreen() {
   const [postagens, setPostagens] = useState(POSTAGENS_INICIAIS);
   const [novoPost, setNovoPost] = useState('');
@@ -105,6 +169,9 @@ export default function ForumScreen() {
   const [novoComentario, setNovoComentario] = useState('');
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [textoEdicao, setTextoEdicao] = useState('');
+
+  const { idioma } = useIdioma();
+  const t = textos[idioma] || textos.pt;
 
   const postagemAberta = postagens.find((postagem) => postagem.id === postagemAbertaId) ?? null;
 
@@ -130,10 +197,10 @@ export default function ForumScreen() {
 
   const tituloLista =
     filtro === 'em-alta'
-      ? 'Em alta agora'
+      ? t.tituloEmAlta
       : filtro === 'minhas'
-        ? 'Minhas postagens'
-        : 'Postagens recentes';
+        ? t.tituloMinhas
+        : t.tituloRecentes;
 
   const publicar = () => {
     const texto = novoPost.trim();
@@ -142,9 +209,9 @@ export default function ForumScreen() {
     setPostagens((atuais) => [
       {
         id: `${Date.now()}`,
-        usuario: 'Você',
+        usuario: idioma === 'en' ? 'You' : 'Você',
         texto,
-        tempo: 'Agora',
+        tempo: idioma === 'en' ? 'Now' : 'Agora',
         curtidas: 0,
         curtido: false,
         ehMinha: true,
@@ -204,9 +271,9 @@ export default function ForumScreen() {
                 ...postagem.comentarios,
                 {
                   id: `${Date.now()}`,
-                  usuario: 'Você',
+                  usuario: idioma === 'en' ? 'You' : 'Você',
                   texto,
-                  tempo: 'Agora',
+                  tempo: idioma === 'en' ? 'Now' : 'Agora',
                   curtidas: 0,
                   curtido: false,
                 },
@@ -230,7 +297,7 @@ export default function ForumScreen() {
     setPostagens((atuais) =>
       atuais.map((postagem) =>
         postagem.id === editandoId && postagem.ehMinha
-          ? { ...postagem, texto, tempo: 'Editada agora' }
+          ? { ...postagem, texto, tempo: idioma === 'en' ? 'Edited now' : 'Editada agora' }
           : postagem
       )
     );
@@ -240,12 +307,12 @@ export default function ForumScreen() {
 
   const excluirPostagem = (postagem: Postagem) => {
     showAppAlert(
-      'Excluir postagem?',
-      'A postagem e todos os comentários serão removidos.',
+      t.msgExcluirTitulo,
+      t.msgExcluirSub,
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: t.cancelar, style: 'cancel' },
         {
-          text: 'Excluir',
+          text: t.excluir,
           style: 'destructive',
           onPress: () => {
             setPostagens((atuais) =>
@@ -261,10 +328,10 @@ export default function ForumScreen() {
   const abrirMenu = (postagem: Postagem) => {
     if (!postagem.ehMinha) return;
 
-    showAppAlert('Sua postagem', undefined, [
-      { text: 'Editar', onPress: () => abrirEdicao(postagem) },
-      { text: 'Excluir', style: 'destructive', onPress: () => excluirPostagem(postagem) },
-      { text: 'Cancelar', style: 'cancel' },
+    showAppAlert(t.suaPostagem, undefined, [
+      { text: t.editar, onPress: () => abrirEdicao(postagem) },
+      { text: t.excluir, style: 'destructive', onPress: () => excluirPostagem(postagem) },
+      { text: t.cancelar, style: 'cancel' },
     ]);
   };
 
@@ -292,8 +359,8 @@ export default function ForumScreen() {
                   <Ionicons name="people" size={25} color="#FFFFFF" />
                 </View>
                 <View style={styles.headingText}>
-                  <Text style={styles.title}>Fórum</Text>
-                  <Text style={styles.subtitle}>Um espaço seguro para conversar e acolher.</Text>
+                  <Text style={styles.title}>{t.forum}</Text>
+                  <Text style={styles.subtitle}>{t.subSeguro}</Text>
                 </View>
               </View>
 
@@ -302,7 +369,7 @@ export default function ForumScreen() {
                 <TextInput
                   value={pesquisa}
                   onChangeText={setPesquisa}
-                  placeholder="Buscar no fórum"
+                  placeholder={t.placeholderBusca}
                   placeholderTextColor="#9B8D92"
                   returnKeyType="search"
                   style={styles.searchInput}
@@ -321,17 +388,17 @@ export default function ForumScreen() {
               >
                 <FilterButton
                   active={filtro === 'postagens'}
-                  label="Postagens"
+                  label={t.filtroPostagens}
                   onPress={() => setFiltro('postagens')}
                 />
                 <FilterButton
                   active={filtro === 'em-alta'}
-                  label="Em alta"
+                  label={t.filtroEmAlta}
                   onPress={() => setFiltro('em-alta')}
                 />
                 <FilterButton
                   active={filtro === 'minhas'}
-                  label="Minhas postagens"
+                  label={t.filtroMinhas}
                   onPress={() => setFiltro('minhas')}
                 />
               </ScrollView>
@@ -341,7 +408,7 @@ export default function ForumScreen() {
                 <TextInput
                   value={novoPost}
                   onChangeText={setNovoPost}
-                  placeholder="Compartilhe algo com a comunidade..."
+                  placeholder={t.placeholderComposer}
                   placeholderTextColor="#93858A"
                   multiline
                   maxLength={500}
@@ -371,12 +438,12 @@ export default function ForumScreen() {
                 color="#BCAEB3"
               />
               <Text style={styles.emptyTitle}>
-                {filtro === 'minhas' ? 'Você ainda não publicou' : 'Nenhuma postagem encontrada'}
+                {filtro === 'minhas' ? t.vazioTituloMinhas : t.vazioTituloGeral}
               </Text>
               <Text style={styles.emptyText}>
                 {filtro === 'minhas'
-                  ? 'Sua próxima postagem aparecerá aqui.'
-                  : 'Tente buscar por outra palavra.'}
+                  ? t.vazioSubMinhas
+                  : t.vazioSubGeral}
               </Text>
             </View>
           }
@@ -410,7 +477,7 @@ export default function ForumScreen() {
                 >
                   <Ionicons name="arrow-back" size={24} color="#3B1421" />
                 </TouchableOpacity>
-                <Text style={styles.threadTitle}>Postagem</Text>
+                <Text style={styles.threadTitle}>{t.postagemModal}</Text>
                 <View style={styles.headerSpacer} />
               </View>
 
@@ -455,18 +522,18 @@ export default function ForumScreen() {
                         <Text style={styles.actionText}>{postagemAberta.comentarios.length}</Text>
                       </View>
                     </View>
-                    <Text style={styles.repliesTitle}>Respostas</Text>
+                    <Text style={styles.repliesTitle}>{t.respostas}</Text>
                   </View>
                 }
                 ListEmptyComponent={
                   <View style={styles.noComments}>
-                    <Text style={styles.emptyTitle}>Ainda não há comentários</Text>
-                    <Text style={styles.emptyText}>Seja a primeira pessoa a responder.</Text>
+                    <Text style={styles.emptyTitle}>{t.semComentariosTitulo}</Text>
+                    <Text style={styles.emptyText}>{t.semComentariosSub}</Text>
                   </View>
                 }
                 renderItem={({ item }) => (
                   <View style={styles.commentRow}>
-                    <Avatar minha={item.usuario === 'Você'} size="small" />
+                    <Avatar minha={item.usuario === 'Você' || item.usuario === 'You'} size="small" />
                     <View style={styles.commentBody}>
                       <View style={styles.commentMeta}>
                         <Text style={styles.commentAuthor}>{item.usuario}</Text>
@@ -498,7 +565,7 @@ export default function ForumScreen() {
                 <TextInput
                   value={novoComentario}
                   onChangeText={setNovoComentario}
-                  placeholder={`Responder a ${postagemAberta.usuario}`}
+                  placeholder={t.placeholderResponder(postagemAberta.usuario)}
                   placeholderTextColor="#94848A"
                   multiline
                   maxLength={500}
@@ -529,7 +596,7 @@ export default function ForumScreen() {
           style={styles.editOverlay}
         >
           <View style={styles.editCard}>
-            <Text style={styles.editTitle}>Editar postagem</Text>
+            <Text style={styles.editTitle}>{t.editarPostagem}</Text>
             <TextInput
               autoFocus
               value={textoEdicao}
@@ -541,14 +608,14 @@ export default function ForumScreen() {
             <Text style={styles.characterCount}>{textoEdicao.length}/500</Text>
             <View style={styles.editActions}>
               <TouchableOpacity onPress={() => setEditandoId(null)} style={styles.cancelButton}>
-                <Text style={styles.cancelButtonText}>Cancelar</Text>
+                <Text style={styles.cancelButtonText}>{t.cancelar}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 disabled={!textoEdicao.trim()}
                 onPress={salvarEdicao}
                 style={[styles.saveButton, !textoEdicao.trim() && styles.publishButtonDisabled]}
               >
-                <Text style={styles.saveButtonText}>Salvar</Text>
+                <Text style={styles.saveButtonText}>{t.salvar}</Text>
               </TouchableOpacity>
             </View>
           </View>

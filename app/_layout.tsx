@@ -6,7 +6,6 @@ import { AppState } from 'react-native';
 import 'react-native-reanimated';
 
 import { auth, db } from '../config/firebase';
-
 import { doc, setDoc } from 'firebase/firestore';
 
 import * as Device from 'expo-device';
@@ -20,6 +19,9 @@ import {
   syncBackgroundSosProfile,
 } from '@/services/background-sos-control';
 import { AppAlertProvider } from '@/components/app-alert';
+
+// IMPORTAÇÃO DO CONTEXTO DE IDIOMA
+import { IdiomaProvider } from '../contexts/IdiomaContext';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -148,7 +150,6 @@ export default function RootLayout() {
         abrirNotificacaoSos(response.notification.request);
       });
 
-    // O toque pode ter iniciado o processo antes de o listener JavaScript existir.
     Notifications.getLastNotificationResponseAsync()
       .then((response) => {
         if (response) abrirNotificacaoSos(response.notification.request);
@@ -181,16 +182,18 @@ export default function RootLayout() {
   }, [router]);
 
   return (
-    <AppAlertProvider>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="auth/login" />
-          <Stack.Screen name="auth/signup" />
-          <Stack.Screen name="sos-recebido" />
-        </Stack>
-        <StatusBar style="auto" />
-      </ThemeProvider>
-    </AppAlertProvider>
+    <IdiomaProvider>
+      <AppAlertProvider>
+        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="auth/login" />
+            <Stack.Screen name="auth/signup" />
+            <Stack.Screen name="sos-recebido" />
+          </Stack>
+          <StatusBar style="auto" />
+        </ThemeProvider>
+      </AppAlertProvider>
+    </IdiomaProvider>
   );
 }

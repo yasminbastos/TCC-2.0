@@ -11,9 +11,11 @@ import {
   TouchableOpacity, 
   View, 
   Modal, 
-  ActivityIndicator } from 'react-native';
+  ActivityIndicator 
+} from 'react-native';
 import { auth, db } from '../../config/firebase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useIdioma } from '../../contexts/IdiomaContext';
 
 const womanPerfil = require('../../assets/images/woman.png');
 
@@ -36,25 +38,78 @@ interface NoticiaIA {
   urlOriginal?: string;
 }
 
+const textos = {
+  pt: {
+    subBrand: "Seu lugar ",
+    subBrandBold: "seguro!",
+    bomDia: "Bom dia",
+    boaTarde: "Boa tarde",
+    boaNoite: "Boa noite",
+    usuarioPadrao: "Usuária",
+    contatoPadrao: "Contato",
+    safetyTitle: "Você não está sozinha.",
+    safetySubtitle: "Estamos aqui para te proteger",
+    redeSeguranca: "Minha rede de segurança",
+    verTodas: "Ver todas",
+    adicionar: "Adicionar",
+    informativos: "Informativos e Conscientização",
+    dicaZella: "Dica Zella",
+    aprenderSinais: "Aprenda a identificar os sinais",
+    resumoIa: "Nosso agente de IA está buscando e resumindo os melhores artigos e informativos sobre segurança e direitos para você.",
+    saibaMais: "Saiba mais",
+    modalWelcome: "Bem-vinda à Zella!",
+    modalDesc: "Preparamos um tutorial rápido para ajudar você a conhecer o aplicativo e aprender a utilizar seus recursos de segurança.",
+    modalBtn: "Assistir ao tutorial",
+    modalNotAgain: "Não mostrar novamente",
+    modalFooter: "Você pode fechar esta janela e acessar o aplicativo normalmente."
+  },
+  en: {
+    subBrand: "Your ",
+    subBrandBold: "safe place!",
+    bomDia: "Good morning",
+    boaTarde: "Good afternoon",
+    boaNoite: "Good evening",
+    usuarioPadrao: "User",
+    contatoPadrao: "Contact",
+    safetyTitle: "You are not alone.",
+    safetySubtitle: "We are here to protect you",
+    redeSeguranca: "My safety network",
+    verTodas: "See all",
+    adicionar: "Add",
+    informativos: "Information & Awareness",
+    dicaZella: "Zella Tip",
+    aprenderSinais: "Learn to identify the signs",
+    resumoIa: "Our AI agent is searching and summarizing the best articles and information on safety and rights for you.",
+    saibaMais: "Learn more",
+    modalWelcome: "Welcome to Zella!",
+    modalDesc: "We've prepared a quick tutorial to help you get to know the app and learn how to use its safety features.",
+    modalBtn: "Watch tutorial",
+    modalNotAgain: "Don't show again",
+    modalFooter: "You can close this window and access the app normally."
+  }
+};
+
 const HomeScreen = () => {
   const [nomeUsuario, setNomeUsuario] = useState('');
   const [tutorialVisivel, setTutorialVisivel] = useState(false);
   const [verificandoTutorial, setVerificandoTutorial] = useState(true);
   const [avatarId, setAvatarId] = useState('person');
-  const [saudacao, setSaudacao] = useState('Olá');
+  const [saudacaoKey, setSaudacaoKey] = useState<'bomDia' | 'boaTarde' | 'boaNoite'>('bomDia');
   const [listaContatos, setListaContatos] = useState<any[]>([]);
   const [noticiasIA, setNoticiasIA] = useState<NoticiaIA[]>([]);
 
   const router = useRouter();
+  const { idioma } = useIdioma();
+  const t = textos[idioma] || textos.pt;
 
-  const obterSaudacao = () => {
+  const obterChaveSaudacao = (): 'bomDia' | 'boaTarde' | 'boaNoite' => {
     const hora = new Date().getHours();
-    if (hora >= 5 && hora < 12) return 'Bom dia';
-    if (hora >= 12 && hora < 18) return 'Boa tarde';
-    return 'Boa noite';
+    if (hora >= 5 && hora < 12) return 'bomDia';
+    if (hora >= 12 && hora < 18) return 'boaTarde';
+    return 'boaNoite';
   };
 
-    useEffect(() => {
+  useEffect(() => {
     const verificarTutorial = async () => {
       try {
         const naoMostrar = await AsyncStorage.getItem('@zella:naoMostrarTutorial');
@@ -113,7 +168,7 @@ const HomeScreen = () => {
 
   useFocusEffect(
     useCallback(() => {
-      setSaudacao(obterSaudacao());
+      setSaudacaoKey(obterChaveSaudacao());
 
       const buscarDadosEContatos = async () => {
         const user = auth.currentUser;
@@ -122,7 +177,7 @@ const HomeScreen = () => {
             const userDoc = await getDoc(doc(db, 'usuarios', user.uid));
             if (userDoc.exists()) {
               const dados = userDoc.data();
-              setNomeUsuario(dados.nome?.split(' ')[0] || "Usuária");
+              setNomeUsuario(dados.nome?.split(' ')[0] || t.usuarioPadrao);
               setAvatarId(dados.avatarId || "person");
 
               const idsContatos = dados.contatosEmergencia || [];
@@ -136,7 +191,7 @@ const HomeScreen = () => {
 
                   const nomeExibicao = apelidos[id] && apelidos[id].trim() !== ''
                     ? apelidos[id]
-                    : (dadosContato.nome?.split(' ')[0] || "Contato");
+                    : (dadosContato.nome?.split(' ')[0] || t.contatoPadrao);
 
                   contatosBuscados.push({
                     id: id,
@@ -147,18 +202,20 @@ const HomeScreen = () => {
               }
               setListaContatos(contatosBuscados);
             } else {
-              setNomeUsuario(user.displayName?.split(' ')[0] || "Usuária");
+              setNomeUsuario(user.displayName?.split(' ')[0] || t.usuarioPadrao);
             }
           } catch (error) {
             console.log("Erro ao buscar dados no Firebase:", error);
-            setNomeUsuario("Usuária");
+            setNomeUsuario(t.usuarioPadrao);
           }
         }
       };
 
       buscarDadosEContatos();
-    }, [])
+    }, [idioma])
   );
+
+  const saudacaoTexto = t[saudacaoKey];
 
   return (
     <View style={styles.container}>
@@ -172,7 +229,7 @@ const HomeScreen = () => {
         <View style={styles.topBar}>
           <View>
             <Text style={styles.brandTitle}>Zella<Text style={styles.sparkle}>✦</Text></Text>
-            <Text style={styles.subBrandTitle}>Seu lugar <Text style={styles.subBrandBold}>seguro!</Text></Text>
+            <Text style={styles.subBrandTitle}>{t.subBrand}<Text style={styles.subBrandBold}>{t.subBrandBold}</Text></Text>
           </View>
           <View style={styles.topActions}>
             <TouchableOpacity style={styles.avatarButton} onPress={() => router.push('/perfil' as any)}>
@@ -182,7 +239,7 @@ const HomeScreen = () => {
         </View>
 
         {/* SAUDAÇÃO DINÂMICA */}
-        <Text style={styles.greeting}>{saudacao}, {nomeUsuario}!</Text>
+        <Text style={styles.greeting}>{saudacaoTexto}, {nomeUsuario}!</Text>
 
         {/* CARD PRINCIPAL DE PROTEÇÃO */}
         <TouchableOpacity style={styles.safetyCard} onPress={() => router.push('/emergencia')}>
@@ -190,8 +247,8 @@ const HomeScreen = () => {
             <Ionicons name="shield-checkmark-outline" size={28} color="#751935" />
           </View>
           <View style={styles.safetyTextContainer}>
-            <Text style={styles.safetyTitle}>Você não está sozinha.</Text>
-            <Text style={styles.safetySubtitle}>Estamos aqui para te proteger</Text>
+            <Text style={styles.safetyTitle}>{t.safetyTitle}</Text>
+            <Text style={styles.safetySubtitle}>{t.safetySubtitle}</Text>
           </View>
 
           <Image
@@ -203,9 +260,9 @@ const HomeScreen = () => {
 
         {/* SEÇÃO: MINHA REDE DE SEGURANÇA */}
         <View style={styles.networkSectionHeader}>
-          <Text style={styles.sectionTitle}>Minha rede de segurança</Text>
+          <Text style={styles.sectionTitle}>{t.redeSeguranca}</Text>
           <TouchableOpacity onPress={() => router.push('/contatos' as any)}>
-            <Text style={styles.seeAllText}>Ver todas</Text>
+            <Text style={styles.seeAllText}>{t.verTodas}</Text>
           </TouchableOpacity>
         </View>
 
@@ -214,7 +271,7 @@ const HomeScreen = () => {
             <View style={styles.addContactCircle}>
               <Ionicons name="add" size={24} color="#751935" />
             </View>
-            <Text style={styles.contactName} numberOfLines={1}>Adicionar</Text>
+            <Text style={styles.contactName} numberOfLines={1}>{t.adicionar}</Text>
           </TouchableOpacity>
 
           {listaContatos.map((contato, index) => (
@@ -235,7 +292,7 @@ const HomeScreen = () => {
 
         {/* SEÇÃO: INFORMATIVOS E NOTÍCIAS */}
         <View style={[styles.networkSectionHeader, { marginTop: 10 }]}>
-          <Text style={styles.sectionTitle}>Informativos e Conscientização</Text>
+          <Text style={styles.sectionTitle}>{t.informativos}</Text>
           <TouchableOpacity onPress={() => router.push('/noticias' as any)}>
           </TouchableOpacity>
         </View>
@@ -261,7 +318,7 @@ const HomeScreen = () => {
                   }
                 }}
               >
-                <Text style={styles.saibaMaisTexto}>Saiba mais</Text>
+                <Text style={styles.saibaMaisTexto}>{t.saibaMais}</Text>
                 <Ionicons name="arrow-forward" size={16} color="#751935" />
               </TouchableOpacity>
             </View>
@@ -270,11 +327,11 @@ const HomeScreen = () => {
           {noticiasIA.length === 0 && (
             <View style={styles.noticiaCard}>
               <View style={[styles.noticiaTag, { backgroundColor: '#F0C4CF' }]}>
-                <Text style={[styles.noticiaTagText, { color: '#751935' }]}>Dica Zella</Text>
+                <Text style={[styles.noticiaTagText, { color: '#751935' }]}>{t.dicaZella}</Text>
               </View>
-              <Text style={styles.noticiaTitle}>Aprenda a identificar os sinais</Text>
+              <Text style={styles.noticiaTitle}>{t.aprenderSinais}</Text>
               <Text style={styles.noticiaSummary}>
-                Nosso agente de IA está buscando e resumindo os melhores artigos e informativos sobre segurança e direitos para você.
+                {t.resumoIa}
               </Text>
             </View>
           )}
@@ -308,12 +365,11 @@ const HomeScreen = () => {
             </View>
 
             <Text style={styles.modalTitle}>
-              Bem-vinda à Zella!
+              {t.modalWelcome}
             </Text>
 
             <Text style={styles.modalDescription}>
-              Preparamos um tutorial rápido para ajudar você a conhecer o
-              aplicativo e aprender a utilizar seus recursos de segurança.
+              {t.modalDesc}
             </Text>
 
             <TouchableOpacity
@@ -323,7 +379,7 @@ const HomeScreen = () => {
             >
               <Ionicons name="logo-youtube" size={21} color="#FFFFFF" />
               <Text style={styles.modalPrimaryButtonText}>
-                Assistir ao tutorial
+                {t.modalBtn}
               </Text>
             </TouchableOpacity>
 
@@ -333,12 +389,12 @@ const HomeScreen = () => {
               accessibilityRole="button"
             >
               <Text style={styles.modalSecondaryButtonText}>
-                Não mostrar novamente
+                {t.modalNotAgain}
               </Text>
             </TouchableOpacity>
 
             <Text style={styles.modalFooter}>
-              Você pode fechar esta janela e acessar o aplicativo normalmente.
+              {t.modalFooter}
             </Text>
           </View>
         </View>
@@ -346,7 +402,6 @@ const HomeScreen = () => {
     </View>
   );
 };
-
 
 export default HomeScreen;
 
